@@ -2,8 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Domain\Integrations\PrestaShopIngestService;
-use App\Domain\Sales\SalesDocumentService;
+use App\Services\SalesDocumentService;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\CustomerCompany;
@@ -83,6 +82,41 @@ class Release3SalesTest extends TestCase
         $service->post($credit);
 
         $this->assertDatabaseHas('stock_moves', ['company_id' => $company->id, 'product_id' => $product->id, 'move_type' => 'return_in', 'qty' => 1.000]);
+    }
+
+    public function test_posting_is_idempotent_and_cannot_run_twice(): void
+    {
+        ['company' => $company] = $this->setupContext();
+
+        $doc = SalesDocument::create(['company_id' => $company->id, 'doc_type' => 'ticket', 'series' => 'T', 'status' => 'draft', 'issue_date' => now(), 'source' => 'manual']);
+        $doc->lines()->create(['line_no' => 1, 'description' => 'Once', 'qty' => 1, 'unit_price' => 10, 'tax_rate' => 7, 'line_net' => 10, 'line_tax' => 0.7, 'line_gross' => 10.7]);
+
+        $service = app(SalesDocumentService::class);
+        $service->post($doc);
+
+        $this->expectException(\RuntimeException::class);
+        $service->post($doc->fresh());
+    }
+
+    public function test_posting_totals_match_for_manual_and_prestashop_auto_post_flows(): void
+    {
+        ['company' => $company] = $this->setupContext();
+
+        $manual = SalesDocument::create(['company_id' => $company->id, 'doc_type' => 'ticket', 'series' => 'T', 'status' => 'draft', 'issue_date' => now(), 'source' => 'manual']);
+        $manual->lines()->create(['line_no' => 1, 'description' => 'Manual', 'qty' => 2, 'unit_price' => 15, 'tax_rate' => 7, 'line_net' => 30, 'line_tax' => 2.1, 'line_gross' => 32.1]);
+        app(SalesDocumentService::class)->post($manual);
+
+        $prestashop = app(\App\Domain\Integrations\PrestaShopIngestService::class)->ingest([
+            'order_id' => '2001',
+            'customer' => ['name' => 'Jane', 'email' => 'jane@example.com'],
+            'lines' => [
+                ['sku' => 'SKU-2001', 'name' => 'Manual', 'qty' => 2, 'unit_price' => 15, 'tax_rate' => 7],
+            ],
+        ], $company->id, true);
+
+        $this->assertSame('posted', $prestashop->status);
+        $this->assertSame((float) $manual->fresh()->gross_total, (float) $prestashop->gross_total);
+        $this->assertSame((float) $manual->fresh()->net_total, (float) $prestashop->net_total);
     }
 
     public function test_prestashop_ingest_creates_draft_document_and_maps_entities(): void

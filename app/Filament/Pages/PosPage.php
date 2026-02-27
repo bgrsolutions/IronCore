@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Domain\Sales\SalesDocumentService;
+use App\Services\SalesDocumentService;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\SalesDocument;

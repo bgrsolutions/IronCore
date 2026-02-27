@@ -7,9 +7,6 @@ use App\Models\CompanySetting;
 use App\Models\Location;
 use App\Models\User;
 use App\Models\Warehouse;
-use App\Models\Location;
-use App\Models\User;
-use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 

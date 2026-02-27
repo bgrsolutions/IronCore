@@ -2,7 +2,7 @@
 
 namespace App\Domain\Integrations;
 
-use App\Domain\Sales\SalesDocumentService;
+use App\Services\SalesDocumentService;
 use App\Models\Customer;
 use App\Models\CustomerCompany;
 use App\Models\IntegrationRun;

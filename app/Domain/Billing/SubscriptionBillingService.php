@@ -2,7 +2,7 @@
 
 namespace App\Domain\Billing;
 
-use App\Domain\Sales\SalesDocumentService;
+use App\Services\SalesDocumentService;
 use App\Models\AuditLog;
 use App\Models\CompanySetting;
 use App\Models\Subscription;

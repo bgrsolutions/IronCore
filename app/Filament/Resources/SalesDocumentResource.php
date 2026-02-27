@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources;
 
-use App\Domain\Sales\SalesDocumentService;
 use App\Filament\Concerns\HasCompanyScopedResource;
 use App\Filament\Resources\SalesDocumentResource\Pages;
 use App\Models\Customer;

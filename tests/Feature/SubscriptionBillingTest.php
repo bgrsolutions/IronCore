@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Domain\Billing\SubscriptionBillingService;
 use App\Models\Company;
 use App\Models\Customer;
+use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlan;
 use App\Models\SubscriptionRun;
@@ -65,6 +66,48 @@ class SubscriptionBillingTest extends TestCase
 
         $this->assertDatabaseHas('sales_documents', ['company_id' => $company->id, 'status' => 'draft']);
         $this->assertDatabaseHas('subscription_runs', ['company_id' => $company->id, 'status' => 'success']);
+    }
+
+    public function test_subscription_auto_post_uses_same_posting_flow_for_inventory_moves(): void
+    {
+        ['company' => $company] = $this->setupContext();
+        $customer = Customer::create(['name' => 'Inventory Customer']);
+        $stock = Product::create(['name' => 'Stock subscription item', 'product_type' => 'stock']);
+
+        $plan = SubscriptionPlan::create([
+            'company_id' => $company->id,
+            'name' => 'Inventory auto-post',
+            'interval_months' => 3,
+            'price_net' => 40,
+            'tax_rate' => 7,
+            'auto_post' => true,
+        ]);
+
+        $subscription = Subscription::create([
+            'company_id' => $company->id,
+            'customer_id' => $customer->id,
+            'plan_id' => $plan->id,
+            'starts_at' => now()->subMonths(3),
+            'next_run_at' => now()->subMinute(),
+        ]);
+
+        $subscription->items()->create([
+            'product_id' => $stock->id,
+            'description' => 'Stock line',
+            'qty' => 1,
+            'unit_price' => 40,
+            'tax_rate' => 7,
+        ]);
+
+        app(SubscriptionBillingService::class)->runDueSubscriptions($company->id);
+
+        $doc = \App\Models\SalesDocument::query()->latest('id')->first();
+        $this->assertSame('posted', $doc->status);
+        $this->assertDatabaseHas('stock_moves', [
+            'company_id' => $company->id,
+            'move_type' => 'sale',
+            'reference_type' => 'sales_document_line',
+        ]);
     }
 
     public function test_auto_post_posts_and_locks_document(): void

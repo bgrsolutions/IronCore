@@ -31,8 +31,6 @@ class VendorBillResource extends Resource
             Forms\Components\Repeater::make('lines')->relationship('lines')->schema([
                 Forms\Components\Select::make('product_id')->relationship('product','name')->searchable(),
                 Forms\Components\Toggle::make('is_stock_item')->default(false),
-                Forms\Components\Select::make('product_id')->relationship('product','name')->searchable(),
-                Forms\Components\Toggle::make('is_stock_item')->default(false),
                 Forms\Components\TextInput::make('description')->required(),
                 Forms\Components\TextInput::make('quantity')->numeric()->default(1),
                 Forms\Components\TextInput::make('unit_price')->numeric()->default(0),

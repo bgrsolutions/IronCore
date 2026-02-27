@@ -15,8 +15,6 @@ class VendorBillLine extends Model
     protected $fillable = ['company_id', 'vendor_bill_id', 'product_id', 'is_stock_item', 'description', 'quantity', 'unit_price', 'net_amount', 'tax_amount', 'gross_amount'];
 
     protected $casts = ['is_stock_item' => 'boolean'];
-    protected $fillable = ['company_id', 'vendor_bill_id', 'product_id', 'is_stock_item', 'description', 'quantity', 'unit_price', 'net_amount', 'tax_amount', 'gross_amount'];
-    protected $casts = ['is_stock_item' => 'boolean'];
 
     public function vendorBill(): BelongsTo
     {

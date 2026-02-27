@@ -42,6 +42,7 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
   - blocks edits after lock
 - Draft cancel supported; posted docs require credit-note correction.
 - Credit notes reference source document and can be posted with return stock moves.
+- All posting flows call `App\Services\SalesDocumentService` (Filament post action, POS, PrestaShop auto-post, subscriptions auto-post).
 
 ## Numbering Rules
 - Unique index on `(company_id, series, number)`.

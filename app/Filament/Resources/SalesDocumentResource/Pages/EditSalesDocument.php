@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\SalesDocumentResource\Pages;
 
-use App\Domain\Sales\SalesDocumentService;
+use App\Services\SalesDocumentService;
 use App\Filament\Resources\SalesDocumentResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
