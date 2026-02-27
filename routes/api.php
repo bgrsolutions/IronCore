@@ -1,0 +1,8 @@
+<?php
+
+use App\Http\Controllers\Api\PrestaShopController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware('integration.token')->group(function (): void {
+    Route::post('/integrations/prestashop/order-paid', [PrestaShopController::class, 'orderPaid']);
+});
