@@ -35,9 +35,12 @@ return [
         ],
     ],
 
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
 
 
     'prestashop' => [
         'auto_post' => env('PRESTASHOP_AUTO_POST', false),
     ],
+=======
+>>>>>>> main
 ];
