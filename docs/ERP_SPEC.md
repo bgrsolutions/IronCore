@@ -7,7 +7,10 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
 - ✅ Release 1: Foundation + documents + vendor bills + expenses + audit
 - ✅ Release 2: Inventory ledger + average costing
 - ✅ Release 3: Sales/POS/invoice core + PrestaShop ingest (this update)
-- ⛔ Release 4+ not started in this iteration
+- ✅ Release 4: Repairs + tablet flow
+- ✅ Release 5: Subscriptions / recurring billing
+- ✅ Release 6: VeriFactu readiness layer
+- ✅ Release 7: Financial visibility + control dashboards
 
 ## Release 2 Guardrails (enforced)
 1. Default warehouse/location are company-specific and seeded (`MAIN` / `DEF`).
@@ -189,3 +192,38 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
 
 ### CI source of truth
 - GitHub Actions workflow added to run `composer install`, migrations, and `php artisan test --testsuite=Feature` on push/PR.
+
+
+## Release 7 Financial Visibility + Control
+
+### Snapshot strategy
+- Cached metrics persisted in `report_snapshots` (`daily` / `weekly`) with payload JSON.
+- Optional drilldowns persisted in `report_snapshot_items`.
+- Idempotent generation uses update-or-create on `(company_id, snapshot_type, snapshot_date/week_start_date)`.
+
+### Metrics definitions included in payload
+- **Sales / Margin**: `revenue_gross`, `revenue_net`, `tax_total`, `cogs_total`, `gross_profit`, `gross_margin_percent`, `negative_margin_documents`, top products by profit/revenue.
+- **Repairs**: `repairs_count`, `repairs_invoiced_count`, `repairs_total_billed_net`, `repairs_total_billed_gross`, `repair_labour_net`, `repair_parts_cogs`, `unbilled_time_minutes`, `billed_time_vs_logged_ratio`.
+- **Inventory**: `stock_value`, `negative_stock_count`, `negative_stock_value_exposure`, dead-stock counters and top dead stock by value.
+- **Subscriptions**: `active_subscriptions_count`, `mrr_estimate`, `upcoming_renewals_7d`, `upcoming_renewals_30d`, `failed_runs_7d`.
+- **Cash discipline**: `unpaid_vendor_bills_count`, `bills_due_7d`, `bills_due_30d`.
+
+### Commands + scheduling
+- `php artisan reports:snapshot-daily --date=YYYY-MM-DD --company=ID(optional)`
+- `php artisan reports:snapshot-weekly --week-start=YYYY-MM-DD --company=ID(optional)`
+- Scheduler:
+  - daily snapshot: `02:00`
+  - weekly snapshot: Sundays `03:00`
+
+### Filament pages/resources added
+- `CompanyPerformanceDashboard`
+- `RepairProfitabilityReport`
+- `InventoryValueRiskReport`
+- `SubscriptionsOverviewReport`
+
+### Lightweight exports
+- CSV export endpoint for:
+  - sales margin report
+  - dead stock list
+  - negative stock list
+  - repair profitability list
