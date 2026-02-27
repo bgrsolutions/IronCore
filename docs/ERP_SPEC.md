@@ -40,12 +40,25 @@ This specification is **living** and must be updated after every release.
 - `expense_lines`
 - `audit_logs`
 
-### Release 2 entities (initiated after Release 1)
+### Release 2 entities
 - `products` (global)
 - `product_company` (per-company override and costing state)
 - `warehouses`
 - `locations`
 - `stock_moves` (event-sourced inventory source of truth)
+
+### Release 3 entities
+- `customers` (global)
+- `customer_company` (per-company override)
+- `sales`
+- `invoices`
+- `invoice_lines`
+
+### Release 4 entities (started)
+- `repairs`
+- `repair_status_history`
+- `repair_time_entries`
+- `repair_parts`
 
 ## Entity definitions
 
@@ -99,17 +112,46 @@ Single source of truth inventory events:
 - transfer
 Each row represents an immutable movement with signed quantity delta.
 
+### customers / customer_company
+Global customer identity with per-company defaults and commercial overrides.
+
+### invoices / invoice_lines
+Release 3 invoice core with series type support (`T`, `F`, `NC`), per-company numbering, immutable posting fields, and compliance-reserved fields.
+
+### sales
+Sales transaction shell linked to invoice and integration source (`manual`, `prestashop`).
+
+### repairs / repair_status_history
+Repair order lifecycle from intake to invoiced with explicit transition history.
+
+### repair_time_entries
+Mandatory labour timer entries constrained to products representing 15, 30, and 60 minute services.
+
+### repair_parts
+Consumed inventory parts linked to repair jobs; each part consumption results in inventory stock movement events.
+
 ## UI resources (Filament target resources)
 - CompanyResource
 - SupplierResource
 - DocumentResource
 - VendorBillResource
 - ExpenseResource
+- ProductResource
+- WarehouseResource
+- StockMoveResource (read-only)
+- CustomerResource
+- InvoiceResource
+- SaleResource
+- RepairResource
+- RepairStatusHistoryResource (read-only)
+- RepairTimeEntryResource
+- RepairPartResource
 - AuditLogResource (read-only)
 - Dashboard widgets:
   - Spend This Month
   - Unpaid Bills
   - Bills Awaiting Approval
+  - Dead Stock Ageing (30/60/90/180)
 
 ## Workflows & state machines
 
@@ -118,21 +160,43 @@ Each row represents an immutable movement with signed quantity delta.
 - editable while `draft`
 - approval action logs approver and timestamp
 - posting sets `posted_at` + `locked_at` and blocks further mutation
+- posting triggers inventory receiving event (Release 2 wiring service)
 
 ### Expense
 `draft -> approved -> posted`
 - receipt attachment allowed in draft/approved
 - posting locks immutable totals and metadata
 
-### Inventory movement (Release 2)
+### Inventory movement
 - Receiving from posted vendor bill creates positive `stock_moves`
 - stock adjustments create signed movement events
 - no direct stock quantity writes; availability is computed from movement aggregation
+- average cost recalculated per product/company on each receipt
+
+### Invoice core
+`draft -> posted`
+- series type required (`T/F/NC`)
+- numbering assigned on posting by company+series
+- payload snapshot persisted at posting
+- posted invoices immutable
+- corrections only via credit note (`NC`) linked through `credit_note_id`
+
+### PrestaShop ingest (Release 3)
+`order paid -> draft invoice -> post`
+- emits `T` by default
+- emits `F` when customer fiscal identity is available
+
+### Repairs workflow (Release 4)
+`intake -> diagnosing -> awaiting_approval -> in_progress -> waiting_parts -> ready -> collected -> invoiced`
+- mandatory `Diagnostic Fee` auto-added at intake (net 45.00 + IGIC)
+- manager-only override requires reason + audit log
+- timer entries mandatory and restricted to 15/30/60 labour products
+- part consumption creates stock movement output events
 
 ## Compliance design notes (VeriFactu readiness)
-- Invoice-core fields reserved from Release 3:
+- Invoice-core fields present from Release 3:
   `hash`, `previous_hash`, `qr_payload`, `posted_at`, `locked_at`, `void_reason`, `credit_note_id`, `export_batch_id`.
-- Immutable posting model introduced in Release 1 for bills/expenses to align with future statutory behavior.
+- Immutable posting model introduced in Release 1 and expanded in Release 3.
 - Audit logging and payload snapshot patterns are introduced as preconditions for Release 6.
 - AEAT-specific hash chaining and QR generation are deferred to Release 6 and must use official AEAT specifications.
 
@@ -148,23 +212,39 @@ Each row represents an immutable movement with signed quantity delta.
 - [x] Dashboard metrics query contract
 - [x] Tests for bill posting and document attachment logic
 
-### Release 2 checklist (started automatically after Release 1)
+### Release 2 checklist
 - [x] Inventory schema foundations
 - [x] Average-cost movement service contract
 - [x] Dead-stock ageing service (30/60/90/180)
-- [ ] Integration from posted vendor bills to stock movements (application event wiring)
-- [ ] Inventory dashboard/report widgets
+- [x] Integration service from posted vendor bills to stock movements
+- [x] Inventory KPI service contracts
+
+### Release 3 checklist
+- [x] Customers + customer_company schema
+- [x] Invoice core schema with immutable and compliance fields
+- [x] Series numbering + posting service contracts (`T/F/NC`)
+- [x] PrestaShop paid-order ingest service contract
+- [ ] POS barcode flow UI
+- [ ] Return flow to credit note UI actions
+
+### Release 4 checklist (started)
+- [x] Repairs schema (`repairs`, history, timer, parts)
+- [x] Diagnostic fee policy service contract (auto-add + manager override)
+- [x] Repair status transition guardrails
+- [x] Repair labour timer service contract (15/30/60)
+- [x] Parts consumption to stock movement service contract
+- [ ] Repair intake/board UI resources
+- [ ] Repair to invoice orchestration
 
 ## Assumptions
 1. Laravel app bootstrap and vendor dependencies exist outside this patch scope.
 2. Soft deletes are used where no-hard-delete policy is required.
 3. Currency handling is decimal fixed-point (`decimal(14,2)`), quantity precision `decimal(14,4)`.
-4. Invoice-core release implementation starts in Release 3; current release prepares constraints and conventions.
+4. Release 3-4 services are domain-layer contracts pending full application wiring to controllers/resources/events.
 
 ## TODO roadmap
-- Release 2 complete event listeners from vendor bill posting to `stock_moves`.
-- Release 3 sales, customers, and POS flows with immutable invoice posting.
-- Release 4 repairs workflow with mandatory diagnostic fee and time tracking.
+- Release 3 complete POS interface, sales orchestration, and return-to-credit-note UI.
+- Release 4 complete repair board UI and repair->invoice closeout.
 - Release 5 generic subscriptions and recurrence engine.
 - Release 6 VeriFactu official AEAT hash-chain + QR + export registry.
 - Release 7 management reporting and accountant export pack.
