@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Company;
 use App\Models\SalesDocument;
+use App\Models\VerifactuEvent;
 use App\Models\VerifactuExport;
 use App\Services\VeriFactuService;
 use App\Support\Company\CompanyContext;
@@ -107,6 +108,41 @@ class VerifactuComplianceTest extends TestCase
         $this->assertArrayHasKey('fecha', $parsed);
         $this->assertArrayHasKey('importe', $parsed);
         $this->assertArrayHasKey('hash', $parsed);
+    }
+
+
+
+    public function test_compute_hash_logs_event_and_rethrows_on_invalid_payload_encoding(): void
+    {
+        ['company' => $company] = $this->setupContext();
+        $vf = app(VeriFactuService::class);
+
+        $this->expectException(\JsonException::class);
+
+        try {
+            $vf->computeHash([
+                'company_id' => $company->id,
+                'broken' => INF,
+            ]);
+        } finally {
+            $this->assertDatabaseHas('verifactu_events', [
+                'company_id' => $company->id,
+                'event_type' => 'verifactu.hash.encoding_error',
+            ]);
+        }
+    }
+
+    public function test_qr_payload_uses_rfc3986_deterministic_encoding(): void
+    {
+        ['company' => $company] = $this->setupContext();
+        $doc = $this->makeDraft($company->id, 'F');
+        $doc->series = 'F test';
+        $doc->save();
+
+        $posted = app(\App\Services\SalesDocumentService::class)->post($doc);
+
+        $this->assertStringNotContainsString('+', (string) $posted->qr_payload);
+        $this->assertStringContainsString('%20', (string) $posted->qr_payload);
     }
 
     public function test_export_file_is_created_and_registry_is_populated(): void

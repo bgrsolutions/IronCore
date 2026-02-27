@@ -56,3 +56,7 @@
 3. **Canonicalization field subset and ordering by annex version**
    - Implemented deterministic canonicalization from immutable invoice payload + chain context.
    - **TODO:** pin to exact annex version identifiers and field-level encoding constraints if AEAT publishes stricter examples/schemas.
+
+4. **QR query-string encoding choice**
+   - `http_build_query(..., PHP_QUERY_RFC3986)` is used to keep deterministic percent-encoding (`%20` instead of `+`).
+   - **TODO:** switch only if AEAT annex explicitly mandates RFC1738 behavior for QR payload serialization.
