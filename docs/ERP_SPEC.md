@@ -111,3 +111,43 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
 - Signature files are stored as: `{company_id}/repairs/{repair_id}/{signature_type}/{timestamp}.png` with SHA-256 hash persisted in `repair_signatures.signature_hash`.
 - Pickup signature tokens can mint a new feedback token; token purposes are strict and enforced per endpoint.
 - If invoice-before-pickup fails, tablet endpoint responds with HTTP 409 and message: `Invoice must be posted before pickup.`
+
+## Release 5: Subscriptions / Recurring Billing
+- Policy: this module is generic and must not include domain-specific branding references.
+- Subscriptions always generate `sales_documents` through existing invoice core services.
+
+### Entities
+- `subscription_plans` (company-scoped templates)
+  - `plan_type`: `subscription` or `service_contract`
+  - `interval_months` supports 3/6/12 and remains extensible
+  - defaults for doc type, series, auto-post, tax and price
+- `subscriptions` (company-scoped recurring contracts)
+  - optional plan link and per-subscription override fields
+  - states: `active`, `paused`, `cancelled`
+  - run fields: `starts_at`, `next_run_at`, optional `ends_at`
+- `subscription_items`
+  - line-level recurring items for future expansion
+- `subscription_runs`
+  - immutable run log for success/skipped/failed attempts
+
+### Scheduling and execution
+- Command: `php artisan subscriptions:run-due`
+- Scheduler frequency: hourly
+- Service: `SubscriptionBillingService`
+  - computes stable next run via month interval
+  - processes due subscriptions (`next_run_at <= now`)
+  - skips paused/cancelled and ended subscriptions with run log entries
+  - handles per-subscription failures without stopping batch
+
+### Sales document generation
+- Effective config resolution order:
+  1. subscription overrides
+  2. plan defaults
+  3. company settings fallback (series)
+- Creates draft `sales_documents` with source ref format:
+  - `subscription:{subscription_id}:{run_date}`
+- Line source:
+  - `subscription_items` if present
+  - fallback single line from plan/subscription settings
+- If `auto_post` is true, document is posted and locked via existing sales posting workflow.
+- Each attempt writes `subscription_runs` and audit logs.
