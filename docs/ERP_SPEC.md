@@ -1,0 +1,113 @@
+# IronCore ERP Living Specification
+
+## Project Purpose
+IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), built incrementally by release.
+
+## Release Status
+- ✅ Release 1: Foundation + documents + vendor bills + expenses + audit
+- ✅ Release 2: Inventory ledger + average costing
+- ✅ Release 3: Sales/POS/invoice core + PrestaShop ingest (this update)
+- ⛔ Release 4+ not started in this iteration
+
+## Release 2 Guardrails (enforced)
+1. Default warehouse/location are company-specific and seeded (`MAIN` / `DEF`).
+2. Vendor bill stock receiving is idempotent (existing `vendor_bill_line` receipt move is not duplicated).
+3. Stock adjustments are manager/admin only and always audit logged.
+
+## Release 2 Inventory Design
+- `stock_moves` is the single source of truth.
+- `product_costs` caches average cost by company+product.
+- Average cost v1 formula:
+  - `avg_cost = SUM(receipt_like.total_cost) / SUM(ABS(receipt_like.qty))`
+  - receipt-like: `receipt`, `adjustment_in`, `transfer_in`, `return_in`
+- Negative stock is allowed; alerts are generated when on-hand drops below zero.
+
+## Release 3 Sales Schema
+- `customers` (global)
+- `customer_company` (per-company fiscal overrides)
+- `sales_documents` (ticket / invoice / credit_note)
+- `sales_document_lines`
+- `payments`
+- `integration_api_tokens`
+- `integration_runs`
+- `inventory_alerts`
+
+## Release 3 Posting Workflow
+- Draft documents are editable.
+- Posting is transaction-safe and:
+  - assigns sequential `number` per `(company_id, series)`
+  - computes totals from lines
+  - writes immutable ordered snapshot to `immutable_payload`
+  - sets `posted_at`, `locked_at`
+  - blocks edits after lock
+- Draft cancel supported; posted docs require credit-note correction.
+- Credit notes reference source document and can be posted with return stock moves.
+
+## Numbering Rules
+- Unique index on `(company_id, series, number)`.
+- Full number format: `<SERIES>-<YEAR>-<6-digit-seq>`.
+
+## Inventory Integration from Sales
+- On posting ticket/invoice for stock products: create `sale` move (`qty` negative).
+- On posting credit note for stock products: create `return_in` move (`qty` positive).
+- Outflow costing uses current `avg_cost` fallback and stores `cost_unit`/`cost_total` on lines.
+- Avg cost recalculation remains receipt-like only.
+
+## Negative Stock Policy
+- Negative stock is explicitly allowed.
+- If posting makes on-hand < 0, create `inventory_alerts` with `alert_type=negative_stock`.
+- Inventory dashboard exposes:
+  - count of negative-stock products
+  - negative stock value exposure
+
+## Release 3 UI
+- CustomerResource + CustomerCompany relation manager
+- SalesDocumentResource (draft/create/edit/post/cancel draft/create credit note)
+- POS page (fast entry, optional customer, one-click post ticket)
+- Inventory Dashboard enhanced with negative-stock widgets
+
+## PrestaShop Endpoint
+- `POST /api/integrations/prestashop/order-paid`
+- Token protected via `integration_api_tokens`
+- Logs each run in `integration_runs`
+- Ingest behavior:
+  - map/create customer by email
+  - map/create products by sku/barcode (placeholder as service if missing)
+  - create draft sales document with `source=prestashop`, `source_ref=order_id`
+  - choose ticket vs invoice by `customer_company.wants_full_invoice`
+  - auto-post controlled by `PRESTASHOP_AUTO_POST`
+
+## Out of Scope in this iteration
+- Release 5 subscriptions
+- Release 6 VeriFactu hash/QR/export logic
+
+## Release 4 Addendum: Customer Signature + Pickup Confirmation Tablet Flow
+- Public tablet routes (unauthenticated):
+  - `GET /p/repairs/{token}`
+  - `POST /p/repairs/{token}/sign`
+  - `POST /p/repairs/{token}/feedback`
+- Security:
+  - one-time `public_tokens` with purpose scoping and expiry (default 30 minutes)
+  - token tied to company + repair + purpose
+  - token invalidated on successful use (`used_at`)
+  - rate-limited endpoints (`throttle:30,1`)
+- New persistence:
+  - `repair_signatures` (intake/pickup signatures + image hash)
+  - `repair_pickups` (pickup confirmation event)
+  - `repair_feedback` (1-5 rating + optional comment)
+  - `public_tokens` (generic public flow token table)
+- Signature capture:
+  - touch-friendly HTML canvas posts base64 PNG
+  - server stores PNG on configured disk and writes SHA-256 hash for integrity
+- Workflow integration:
+  - Filament `RepairResource` actions generate intake/pickup/feedback links
+  - pickup signature creates pickup record, confirms pickup, and sets repair status to `collected`
+  - repairs link to `sales_documents` via `linked_sales_document_id` only (no separate invoices table)
+  - configurable rule `REPAIRS_REQUIRE_INVOICE_BEFORE_PICKUP` blocks pickup signature until linked sales document exists and is `posted`
+- Reporting:
+  - repair signature image viewable from signatures relation
+  - pickup receipt PDF generated and stored as `documents` attachment on repair
+
+- Signature files are stored as: `{company_id}/repairs/{repair_id}/{signature_type}/{timestamp}.png` with SHA-256 hash persisted in `repair_signatures.signature_hash`.
+- Pickup signature tokens can mint a new feedback token; token purposes are strict and enforced per endpoint.
+- If invoice-before-pickup fails, tablet endpoint responds with HTTP 409 and message: `Invoice must be posted before pickup.`
