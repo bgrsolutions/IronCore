@@ -41,4 +41,5 @@ return [
         'auto_post' => env('PRESTASHOP_AUTO_POST', false),
     ],
 
+
 ];

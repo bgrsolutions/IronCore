@@ -49,6 +49,7 @@ return new class extends Migration {
             $table->string('code');
             $table->string('name');
             $table->boolean('is_default')->default(false);
+            $table->boolean('is_default')->default(false);
             $table->timestamps();
             $table->unique(['warehouse_id', 'code']);
         });
@@ -87,6 +88,7 @@ return new class extends Migration {
 
     public function down(): void
     {
+        Schema::dropIfExists('product_costs');
         Schema::dropIfExists('product_costs');
         Schema::dropIfExists('stock_moves');
         Schema::dropIfExists('locations');

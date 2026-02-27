@@ -4,7 +4,13 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
+
+  
+  
+  
+  codex/implement-release-1-of-ironcore-erp-cbyy59
     "content-hash": "1ee9135167f4036c00d570b6cbb5210f",
+    "content-hash": "4614d5c24c580ce9a162b81f343c0433",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
