@@ -19,4 +19,5 @@ class SalesDocument extends Model
 
     public function lines(): HasMany { return $this->hasMany(SalesDocumentLine::class); }
     public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
+    public function exportItems(): HasMany { return $this->hasMany(VerifactuExportItem::class); }
 }

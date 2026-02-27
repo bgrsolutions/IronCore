@@ -80,7 +80,7 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
 
 ## Out of Scope in this iteration
 - Release 5 subscriptions
-- Release 6 VeriFactu hash/QR/export logic
+- ✅ Release 6 VeriFactu hash/QR/export logic
 
 ## Release 4 Addendum: Customer Signature + Pickup Confirmation Tablet Flow
 - Public tablet routes (unauthenticated):
@@ -152,3 +152,40 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
   - fallback single line from plan/subscription settings
 - If `auto_post` is true, document is posted and locked via existing sales posting workflow.
 - Each attempt writes `subscription_runs` and audit logs.
+
+
+## Release 6 VeriFactu Compliance
+- Official source list tracked in `docs/VERIFACTU_SOURCES.md`.
+- Registry tables:
+  - `verifactu_exports`
+  - `verifactu_export_items`
+  - `verifactu_events`
+- Sales posting hook:
+  - implemented inside `App\Services\SalesDocumentService::post()` transaction
+  - calculates `previous_hash` by chain scope `(company_id + series)`
+  - canonicalizes immutable payload deterministically
+  - computes SHA-256 hash
+  - generates and stores `qr_payload`
+  - persists hash fields atomically with posting/number allocation
+
+### Chain scope decision
+- Implemented chain scope: `company_id + series`.
+- Isolated chains by company and by series within company.
+
+### Canonicalization strategy
+- Deterministic array payload with stable key ordering.
+- Canonical source fields include issuer id, invoice identifier, date, totals, previous hash, and normalized lines.
+- Numeric normalization uses fixed decimal formatting for stable hashing.
+
+### Export process
+- Command: `php artisan verifactu:export --company=ID --from=YYYY-MM-DD --to=YYYY-MM-DD`
+- Export steps:
+  1. select posted documents in period
+  2. build deterministic record payloads
+  3. write export file under `storage/app/verifactu/...`
+  4. compute file SHA-256
+  5. create `verifactu_exports` + `verifactu_export_items`
+  6. write audit event (`verifactu.export.generated`)
+
+### CI source of truth
+- GitHub Actions workflow added to run `composer install`, migrations, and `php artisan test --testsuite=Feature` on push/PR.

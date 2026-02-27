@@ -16,7 +16,7 @@ use RuntimeException;
 
 final class SalesDocumentService
 {
-    public function __construct(private readonly StockService $stockService)
+    public function __construct(private readonly StockService $stockService, private readonly VeriFactuService $veriFactuService)
     {
     }
 
@@ -43,11 +43,22 @@ final class SalesDocumentService
                 $this->createInventoryMoves($document, $line);
             }
 
+            $fullNumber = sprintf('%s-%s-%06d', $document->series, now()->format('Y'), $nextNumber);
+            $document->number = $nextNumber;
+            $document->full_number = $fullNumber;
+            $document->net_total = $totals['net_total'];
+            $document->tax_total = $totals['tax_total'];
+            $document->gross_total = $totals['gross_total'];
+
             $payload = $this->buildImmutablePayload($document, $lines, $nextNumber, $totals);
+            $previousHash = $this->veriFactuService->resolvePreviousHash($document);
+            $canonical = $this->veriFactuService->canonicalizePayload($document, $payload, $previousHash, $fullNumber);
+            $hash = $this->veriFactuService->computeHash($canonical);
+            $qrPayload = $this->veriFactuService->generateQrPayload($document, $hash, $fullNumber);
 
             $document->update([
                 'number' => $nextNumber,
-                'full_number' => sprintf('%s-%s-%06d', $document->series, now()->format('Y'), $nextNumber),
+                'full_number' => $fullNumber,
                 'status' => 'posted',
                 'net_total' => $totals['net_total'],
                 'tax_total' => $totals['tax_total'],
@@ -55,6 +66,15 @@ final class SalesDocumentService
                 'posted_at' => now(),
                 'locked_at' => now(),
                 'immutable_payload' => $payload,
+                'previous_hash' => $previousHash,
+                'hash' => $hash,
+                'qr_payload' => $qrPayload,
+            ]);
+
+            $this->veriFactuService->recordEvent((int) $document->company_id, (int) $document->id, 'sales_document.posted', [
+                'hash' => $hash,
+                'previous_hash' => $previousHash,
+                'series' => $document->series,
             ]);
 
             AuditLog::query()->create([
