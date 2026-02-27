@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Services\SalesDocumentService;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\ProductCost;
 use App\Models\SalesDocument;
 use App\Support\Company\CompanyContext;
 use Filament\Forms\Components\Repeater;
@@ -27,6 +28,7 @@ class PosPage extends Page implements HasForms
 
     public ?int $customer_id = null;
     public ?string $barcode = null;
+    public ?string $below_cost_override_reason = null;
     /** @var array<int, array<string,mixed>> */
     public array $lines = [];
 
@@ -41,7 +43,29 @@ class PosPage extends Page implements HasForms
                 TextInput::make('qty')->numeric()->default(1),
                 TextInput::make('unit_price')->numeric()->default(0),
                 TextInput::make('tax_rate')->numeric()->default(7),
+                TextInput::make('margin_estimate')
+                    ->label('Margin estimate')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->formatStateUsing(function (callable $get): string {
+                        $lineNet = (float) $get('line_net');
+                        if ($lineNet === 0.0) {
+                            $qty = (float) $get('qty');
+                            $unit = (float) $get('unit_price');
+                            $lineNet = round($qty * $unit, 2);
+                        }
+
+                        $productId = $get('product_id');
+                        $estimatedCost = $productId
+                            ? ((float) ProductCost::query()->where('company_id', (int) CompanyContext::get())->where('product_id', (int) $productId)->value('avg_cost') * abs((float) $get('qty')))
+                            : 0.0;
+
+                        return number_format($lineNet - $estimatedCost, 2);
+                    }),
             ])->columns(5),
+            TextInput::make('below_cost_override_reason')
+                ->label('Below-cost override reason (manager/admin only)')
+                ->maxLength(500),
         ];
     }
 
@@ -78,7 +102,7 @@ class PosPage extends Page implements HasForms
             ]);
         }
 
-        app(SalesDocumentService::class)->post($doc);
+        app(SalesDocumentService::class)->post($doc, $this->below_cost_override_reason);
         Notification::make()->success()->title('Ticket posted')->send();
     }
 }

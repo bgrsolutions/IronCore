@@ -6,6 +6,7 @@ use App\Domain\Inventory\StockService;
 use App\Models\AuditLog;
 use App\Models\Location;
 use App\Models\Product;
+use App\Models\ProductCost;
 use App\Models\SalesDocument;
 use App\Models\SalesDocumentLine;
 use App\Models\Warehouse;
@@ -20,9 +21,10 @@ final class SalesDocumentService
     {
     }
 
-    public function post(SalesDocument $doc): SalesDocument
+    public function post(SalesDocument $doc, ?string $belowCostOverrideReason = null): SalesDocument
     {
         $this->guardPostAccess($doc);
+        $this->enforceBelowCostPolicy($doc, $belowCostOverrideReason);
 
         return DB::transaction(function () use ($doc): SalesDocument {
             $document = SalesDocument::query()->lockForUpdate()->findOrFail($doc->id);
@@ -272,5 +274,69 @@ final class SalesDocumentService
         if (auth()->check() && ! auth()->user()->companies()->where('companies.id', $document->company_id)->exists()) {
             throw new RuntimeException('Cross-company posting is forbidden.');
         }
+    }
+
+    private function enforceBelowCostPolicy(SalesDocument $document, ?string $overrideReason): void
+    {
+        if ($document->doc_type === 'credit_note') {
+            return;
+        }
+
+        $marginRows = $this->marginEstimateRows($document);
+        $belowCostRows = array_values(array_filter($marginRows, fn (array $row): bool => (float) $row['margin_estimate'] < 0));
+
+        if ($belowCostRows === []) {
+            return;
+        }
+
+        $user = auth()->user();
+        if (! $user || ! $user->hasAnyRole(['manager', 'admin'])) {
+            throw new RuntimeException('Sell-below-cost override requires manager or admin role.');
+        }
+
+        if ($overrideReason === null || trim($overrideReason) === '') {
+            throw new RuntimeException('Sell-below-cost override reason is required.');
+        }
+
+        AuditLog::query()->create([
+            'company_id' => $document->company_id,
+            'user_id' => auth()->id(),
+            'action' => 'below_cost_override',
+            'auditable_type' => 'sales_document',
+            'auditable_id' => $document->id,
+            'payload' => [
+                'event_type' => 'below_cost_override',
+                'reason' => trim($overrideReason),
+                'lines' => $belowCostRows,
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function marginEstimateRows(SalesDocument $document): array
+    {
+        $lines = $document->lines()->orderBy('line_no')->get();
+        $costs = ProductCost::query()
+            ->where('company_id', $document->company_id)
+            ->whereIn('product_id', $lines->pluck('product_id')->filter()->values())
+            ->get()
+            ->keyBy('product_id');
+
+        return $lines->map(function (SalesDocumentLine $line) use ($costs): array {
+            $lineNet = (float) $line->line_net;
+            $estimatedCost = $line->cost_total !== null
+                ? (float) $line->cost_total
+                : ((float) optional($costs->get($line->product_id))->avg_cost * abs((float) $line->qty));
+
+            return [
+                'line_id' => (int) $line->id,
+                'line_no' => (int) $line->line_no,
+                'description' => (string) $line->description,
+                'line_net' => round($lineNet, 2),
+                'estimated_cost_total' => round($estimatedCost, 2),
+                'margin_estimate' => round($lineNet - $estimatedCost, 2),
+            ];
+        })->all();
     }
 }

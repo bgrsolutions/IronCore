@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Services\SalesDocumentService;
+use App\Models\AuditLog;
 use App\Models\Company;
 use App\Models\Customer;
 use App\Models\CustomerCompany;
@@ -11,6 +12,7 @@ use App\Models\Location;
 use App\Models\Product;
 use App\Models\ProductCost;
 use App\Models\SalesDocument;
+use App\Models\User;
 use App\Models\Warehouse;
 use App\Support\Company\CompanyContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -142,6 +144,61 @@ class Release3SalesTest extends TestCase
         $this->assertDatabaseHas('customers', ['email' => 'john@example.com']);
         $this->assertDatabaseHas('sales_documents', ['source' => 'prestashop', 'source_ref' => '1001', 'status' => 'draft']);
         $this->assertDatabaseHas('products', ['sku' => 'SKU-1']);
+    }
+
+
+
+    public function test_below_cost_override_requires_manager_or_admin_role(): void
+    {
+        ['company' => $company] = $this->setupContext();
+
+        $staff = User::factory()->create();
+        $staff->assignRole('staff');
+        $staff->companies()->syncWithoutDetaching([$company->id]);
+        $this->actingAs($staff);
+
+        $product = Product::create(['name' => 'Loss item', 'product_type' => 'stock']);
+        ProductCost::create(['company_id' => $company->id, 'product_id' => $product->id, 'avg_cost' => 10]);
+
+        $doc = SalesDocument::create(['company_id' => $company->id, 'doc_type' => 'ticket', 'series' => 'T', 'status' => 'draft', 'issue_date' => now(), 'source' => 'manual']);
+        $doc->lines()->create(['line_no' => 1, 'product_id' => $product->id, 'description' => 'Loss line', 'qty' => 1, 'unit_price' => 8, 'tax_rate' => 7, 'line_net' => 8, 'line_tax' => 0.56, 'line_gross' => 8.56]);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('requires manager or admin role');
+        app(SalesDocumentService::class)->post($doc, 'trying override');
+    }
+
+    public function test_below_cost_override_reason_is_required_for_manager_admin_and_audited(): void
+    {
+        ['company' => $company, 'user' => $user] = $this->setupContext();
+
+        $user->syncRoles(['manager']);
+
+        $product = Product::create(['name' => 'Loss item manager', 'product_type' => 'stock']);
+        ProductCost::create(['company_id' => $company->id, 'product_id' => $product->id, 'avg_cost' => 10]);
+
+        $doc = SalesDocument::create(['company_id' => $company->id, 'doc_type' => 'ticket', 'series' => 'T', 'status' => 'draft', 'issue_date' => now(), 'source' => 'manual']);
+        $doc->lines()->create(['line_no' => 1, 'product_id' => $product->id, 'description' => 'Loss line', 'qty' => 1, 'unit_price' => 8, 'tax_rate' => 7, 'line_net' => 8, 'line_tax' => 0.56, 'line_gross' => 8.56]);
+
+        try {
+            app(SalesDocumentService::class)->post($doc, null);
+            $this->fail('Expected reason requirement exception.');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('override reason is required', $e->getMessage());
+        }
+
+        app(SalesDocumentService::class)->post($doc->fresh(), 'Manager approved promo exception');
+
+        $this->assertDatabaseHas('audit_logs', [
+            'company_id' => $company->id,
+            'action' => 'below_cost_override',
+            'auditable_type' => 'sales_document',
+            'auditable_id' => $doc->id,
+        ]);
+
+        $audit = AuditLog::query()->where('action', 'below_cost_override')->latest('id')->first();
+        $this->assertSame('below_cost_override', $audit->payload['event_type'] ?? null);
+        $this->assertSame('Manager approved promo exception', $audit->payload['reason'] ?? null);
     }
 
     public function test_company_scoping_blocks_cross_company_posting(): void

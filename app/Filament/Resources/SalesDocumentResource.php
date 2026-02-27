@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasCompanyScopedResource;
 use App\Filament\Resources\SalesDocumentResource\Pages;
 use App\Models\Customer;
 use App\Models\Product;
+use App\Models\ProductCost;
 use App\Models\SalesDocument;
 use App\Support\Company\CompanyContext;
 use Filament\Forms;
@@ -39,7 +40,28 @@ class SalesDocumentResource extends Resource
                 Forms\Components\TextInput::make('line_net')->numeric()->required(),
                 Forms\Components\TextInput::make('line_tax')->numeric()->required(),
                 Forms\Components\TextInput::make('line_gross')->numeric()->required(),
+                Forms\Components\TextInput::make('margin_estimate')
+                    ->label('Margin estimate')
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->formatStateUsing(function (callable $get): string {
+                        $lineNet = (float) $get('line_net');
+                        $estimatedCost = $get('cost_total') !== null
+                            ? (float) $get('cost_total')
+                            : (((float) ProductCost::query()
+                                ->where('company_id', (int) CompanyContext::get())
+                                ->where('product_id', (int) ($get('product_id') ?? 0))
+                                ->value('avg_cost')) * abs((float) $get('qty')));
+
+                        return number_format($lineNet - $estimatedCost, 2);
+                    }),
             ])->columns(3),
+            Forms\Components\Textarea::make('below_cost_override_reason')
+                ->label('Below-cost override reason')
+                ->dehydrated(false)
+                ->rows(2)
+                ->maxLength(500)
+                ->helperText('Required for manager/admin when any line is below estimated cost.'),
             Forms\Components\TextInput::make('status')->disabled(),
             Forms\Components\Textarea::make('cancel_reason')->disabled(),
             Forms\Components\TextInput::make('hash')->disabled()->label('VeriFactu Hash'),

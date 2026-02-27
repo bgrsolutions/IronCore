@@ -34,8 +34,10 @@ final class ReportService
         $revenueNet = (float) $salesDocs->sum('net_total') - (float) $creditDocs->sum('net_total');
         $taxTotal = (float) $salesDocs->sum('tax_total') - (float) $creditDocs->sum('tax_total');
 
-        $salesCogs = (float) $salesDocs->flatMap->lines->sum(fn ($l) => (float) ($l->cost_total ?? 0));
-        $creditCogs = (float) $creditDocs->flatMap->lines->sum(fn ($l) => (float) ($l->cost_total ?? 0));
+        // COGS sign convention: line cost_total is stored as absolute positive cost.
+        // Credit notes net COGS by subtracting credit-note COGS from sales COGS.
+        $salesCogs = (float) $salesDocs->sum(fn (SalesDocument $doc) => $this->documentCogsAbsolute($doc));
+        $creditCogs = (float) $creditDocs->sum(fn (SalesDocument $doc) => $this->documentCogsAbsolute($doc));
         $cogsTotal = $salesCogs - $creditCogs;
 
         $grossProfit = $revenueNet - $cogsTotal;
@@ -85,7 +87,7 @@ final class ReportService
         foreach ($onHandByProduct as $row) {
             $avg = (float) optional($productCosts->get($row->product_id))->avg_cost;
             $onHand = (float) $row->on_hand;
-            $stockValue += ($onHand * $avg);
+            $stockValue += max(0, $onHand) * $avg;
             if ($onHand < 0) {
                 $negativeStockCount++;
                 $negativeExposure += abs($onHand) * $avg;
@@ -143,7 +145,7 @@ final class ReportService
         $billsDue30 = VendorBill::query()->where('company_id', $companyId)->where('status', 'posted')->whereNull('cancelled_at')->whereBetween('due_date', [now()->toDateString(), now()->copy()->addDays(30)->toDateString()])->count();
 
         $negativeMarginDocs = $salesDocs->map(function (SalesDocument $doc): array {
-            $cogs = (float) $doc->lines->sum(fn ($l) => (float) ($l->cost_total ?? 0));
+            $cogs = $this->documentCogsSigned($doc);
             $margin = (float) $doc->net_total - $cogs;
 
             return ['id' => $doc->id, 'full_number' => $doc->full_number, 'revenue_net' => (float) $doc->net_total, 'cogs' => $cogs, 'margin' => $margin];
@@ -164,6 +166,7 @@ final class ReportService
                 'negative_margin_documents' => $negativeMarginDocs,
                 'top_products_by_gross_profit' => array_slice($topProfitProducts, 0, 20),
                 'top_products_by_revenue' => array_slice($topRevenueProducts, 0, 20),
+                'below_cost_sales_last_7_days' => $this->belowCostSalesLastDays($companyId, 7),
             ],
             'repairs' => [
                 'repairs_count' => $repairs->count(),
@@ -305,7 +308,7 @@ final class ReportService
             ->get();
 
         return $docs->map(function (SalesDocument $doc): array {
-            $cogs = (float) $doc->lines->sum(fn ($l) => (float) ($l->cost_total ?? 0));
+            $cogs = $this->documentCogsSigned($doc);
             return [
                 'sales_document_id' => $doc->id,
                 'full_number' => $doc->full_number,
@@ -313,7 +316,7 @@ final class ReportService
                 'net_total' => (float) $doc->net_total,
                 'gross_total' => (float) $doc->gross_total,
                 'cogs_total' => $cogs,
-                'margin' => (float) $doc->net_total - $cogs,
+                'margin' => round((float) $doc->net_total - $cogs, 2),
             ];
         })->all();
     }
@@ -361,6 +364,52 @@ final class ReportService
             ];
         })->all();
     }
+
+    /**
+     * cost_total is stored as absolute (positive) line cost.
+     * Credit notes are netted by applying a -1 sign at document level.
+     */
+    private function documentCogsSigned(SalesDocument $doc): float
+    {
+        $sign = $doc->doc_type === 'credit_note' ? -1 : 1;
+
+        return round($sign * $this->documentCogsAbsolute($doc), 2);
+    }
+
+    private function documentCogsAbsolute(SalesDocument $doc): float
+    {
+        return (float) $doc->lines->sum(fn ($l) => abs((float) ($l->cost_total ?? 0)));
+    }
+
+    /** @return array{count:int,documents:array<int,array<string,mixed>>} */
+    private function belowCostSalesLastDays(int $companyId, int $days): array
+    {
+        $from = now()->copy()->subDays($days)->startOfDay();
+        $docs = SalesDocument::query()
+            ->with('lines')
+            ->where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereIn('doc_type', ['ticket', 'invoice'])
+            ->whereBetween('issue_date', [$from, now()])
+            ->get();
+
+        $rows = $docs->map(function (SalesDocument $doc): array {
+            $cogs = $this->documentCogsSigned($doc);
+            $margin = (float) $doc->net_total - $cogs;
+
+            return [
+                'id' => (int) $doc->id,
+                'full_number' => (string) $doc->full_number,
+                'issue_date' => optional($doc->issue_date)->toDateString(),
+                'revenue_net' => round((float) $doc->net_total, 2),
+                'cogs' => round($cogs, 2),
+                'margin' => round($margin, 2),
+            ];
+        })->filter(fn (array $row): bool => $row['margin'] < 0)->values()->all();
+
+        return ['count' => count($rows), 'documents' => $rows];
+    }
+
     /** @return Collection<int,Company> */
     public function targetCompanies(?int $companyId = null): Collection
     {

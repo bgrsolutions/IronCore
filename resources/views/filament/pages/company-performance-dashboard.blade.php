@@ -10,6 +10,9 @@
             <x-filament::section heading="Repairs Invoiced / Total">{{ $m['repairs']['repairs_invoiced_count'] ?? 0 }} / {{ $m['repairs']['repairs_count'] ?? 0 }}</x-filament::section>
             <x-filament::section heading="Subscription MRR">€ {{ number_format($m['subscriptions']['mrr_estimate'] ?? 0, 2) }}</x-filament::section>
             <x-filament::section heading="Renewals 30d">{{ $m['subscriptions']['upcoming_renewals_30d'] ?? 0 }}</x-filament::section>
+            <x-filament::section heading="Below-cost sales (last 7d)">
+                {{ $m['sales']['below_cost_sales_last_7_days']['count'] ?? 0 }}
+            </x-filament::section>
         </div>
         <x-filament::section heading="Top Products by Gross Profit">
             <div class="text-sm">{{ json_encode($m['sales']['top_products_by_gross_profit'] ?? []) }}</div>
@@ -22,6 +25,9 @@
         </x-filament::section>
         <x-filament::section heading="Negative Margin Documents">
             <div class="text-sm">{{ json_encode($m['sales']['negative_margin_documents'] ?? []) }}</div>
+        </x-filament::section>
+        <x-filament::section heading="Below-cost Sales Last 7 Days">
+            <div class="text-sm">{{ json_encode($m['sales']['below_cost_sales_last_7_days']['documents'] ?? []) }}</div>
         </x-filament::section>
     </div>
 </x-filament-panels::page>

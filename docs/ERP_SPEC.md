@@ -202,11 +202,23 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
 - Idempotent generation uses update-or-create on `(company_id, snapshot_type, snapshot_date/week_start_date)`.
 
 ### Metrics definitions included in payload
-- **Sales / Margin**: `revenue_gross`, `revenue_net`, `tax_total`, `cogs_total`, `gross_profit`, `gross_margin_percent`, `negative_margin_documents`, top products by profit/revenue.
+- **Sales / Margin**: `revenue_gross`, `revenue_net`, `tax_total`, `cogs_total`, `gross_profit`, `gross_margin_percent`, `negative_margin_documents`, top products by profit/revenue, `below_cost_sales_last_7_days`.
 - **Repairs**: `repairs_count`, `repairs_invoiced_count`, `repairs_total_billed_net`, `repairs_total_billed_gross`, `repair_labour_net`, `repair_parts_cogs`, `unbilled_time_minutes`, `billed_time_vs_logged_ratio`.
 - **Inventory**: `stock_value`, `negative_stock_count`, `negative_stock_value_exposure`, dead-stock counters and top dead stock by value.
+  - `stock_value` only values **positive on-hand** (`max(0, on_hand) * avg_cost`), so oversold inventory is tracked in exposure but does not reduce valuation.
 - **Subscriptions**: `active_subscriptions_count`, `mrr_estimate`, `upcoming_renewals_7d`, `upcoming_renewals_30d`, `failed_runs_7d`.
 - **Cash discipline**: `unpaid_vendor_bills_count`, `bills_due_7d`, `bills_due_30d`.
+
+
+### Release 7.1 Control Pack A clarifications
+- **COGS sign convention**: `sales_document_lines.cost_total` is treated as an absolute positive cost amount.
+  - Posted ticket/invoice COGS contribute positively.
+  - Credit note COGS are netted by subtracting their absolute COGS from sales COGS.
+- **Repair parts COGS source**: computed from `repair_parts.line_cost` for now (no `repair_line_items` table exists in current schema).
+- **Sell-below-cost controls**:
+  - POS and Sales Document posting flows show per-line margin estimate (`line_net - estimated_cost_total`).
+  - If any line is below cost, only `manager`/`admin` can post, and an override reason is mandatory.
+  - Override writes audit event/action `below_cost_override` with reason and affected line details.
 
 ### Commands + scheduling
 - `php artisan reports:snapshot-daily --date=YYYY-MM-DD --company=ID(optional)`
