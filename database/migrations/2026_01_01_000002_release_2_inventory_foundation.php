@@ -9,9 +9,17 @@ return new class extends Migration {
     {
         Schema::create('products', function (Blueprint $table): void {
             $table->id();
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
+            $table->string('sku')->nullable()->unique();
+            $table->string('barcode')->nullable()->index();
+            $table->string('name');
+            $table->text('description')->nullable();
+            $table->enum('product_type', ['stock', 'service'])->default('stock');
+=======
             $table->string('sku')->unique();
             $table->string('name');
             $table->string('barcode')->nullable()->index();
+>>>>>>> main
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
@@ -20,9 +28,18 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
+            $table->boolean('is_active')->default(true);
+            $table->unsignedBigInteger('default_tax_profile_id')->nullable();
+            $table->decimal('default_igic_rate', 6, 3)->nullable();
+            $table->decimal('sale_price', 12, 4)->nullable();
+            $table->decimal('reorder_min_qty', 12, 3)->nullable();
+            $table->foreignId('preferred_supplier_id')->nullable()->constrained('suppliers')->nullOnDelete();
+=======
             $table->decimal('average_cost', 14, 4)->default(0);
             $table->decimal('reorder_level', 14, 4)->default(0);
             $table->json('overrides')->nullable();
+>>>>>>> main
             $table->timestamps();
             $table->unique(['company_id', 'product_id']);
         });
@@ -31,9 +48,16 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->string('name');
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
+            $table->string('code');
+            $table->boolean('is_default')->default(false);
+            $table->timestamps();
+            $table->unique(['company_id', 'code']);
+=======
             $table->boolean('is_default')->default(false);
             $table->timestamps();
             $table->unique(['company_id', 'name']);
+>>>>>>> main
         });
 
         Schema::create('locations', function (Blueprint $table): void {
@@ -42,6 +66,10 @@ return new class extends Migration {
             $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
             $table->string('code');
             $table->string('name');
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
+            $table->boolean('is_default')->default(false);
+=======
+>>>>>>> main
             $table->timestamps();
             $table->unique(['warehouse_id', 'code']);
         });
@@ -50,6 +78,33 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
+            $table->foreignId('warehouse_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('location_id')->nullable()->constrained()->nullOnDelete();
+            $table->enum('move_type', ['receipt', 'sale', 'adjustment_in', 'adjustment_out', 'transfer_in', 'transfer_out', 'return_in', 'return_out']);
+            $table->decimal('qty', 12, 3);
+            $table->decimal('unit_cost', 12, 4)->nullable();
+            $table->decimal('total_cost', 12, 4)->nullable();
+            $table->string('reference_type')->nullable();
+            $table->unsignedBigInteger('reference_id')->nullable();
+            $table->text('note')->nullable();
+            $table->dateTime('occurred_at');
+            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->timestamps();
+            $table->index(['company_id', 'product_id']);
+            $table->index(['company_id', 'warehouse_id']);
+            $table->index('occurred_at');
+        });
+
+        Schema::create('product_costs', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained()->cascadeOnDelete();
+            $table->decimal('avg_cost', 12, 4)->default(0);
+            $table->dateTime('last_calculated_at')->nullable();
+            $table->timestamps();
+            $table->unique(['company_id', 'product_id']);
+=======
             $table->foreignId('warehouse_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('location_id')->nullable()->constrained()->nullOnDelete();
             $table->string('direction', 16);
@@ -61,11 +116,16 @@ return new class extends Migration {
             $table->timestamps();
             $table->softDeletes();
             $table->index(['company_id', 'product_id', 'moved_at']);
+>>>>>>> main
         });
     }
 
     public function down(): void
     {
+<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
+        Schema::dropIfExists('product_costs');
+=======
+>>>>>>> main
         Schema::dropIfExists('stock_moves');
         Schema::dropIfExists('locations');
         Schema::dropIfExists('warehouses');

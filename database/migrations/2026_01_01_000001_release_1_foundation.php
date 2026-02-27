@@ -111,6 +111,8 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('vendor_bill_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('product_id')->nullable();
+            $table->boolean('is_stock_item')->default(false);
             $table->string('description');
             $table->decimal('quantity', 14, 4)->default(1);
             $table->decimal('unit_price', 14, 4)->default(0);
