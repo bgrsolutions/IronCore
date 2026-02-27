@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('invoice_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('linked_sales_document_id')->nullable()->constrained('sales_documents')->nullOnDelete();
             $table->string('status')->default('intake');
             $table->string('device_brand')->nullable();
             $table->string('device_model')->nullable();

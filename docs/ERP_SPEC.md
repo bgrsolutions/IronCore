@@ -1,7 +1,6 @@
 # IronCore ERP Living Specification
 
 ## Project Purpose
-<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
 IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), built incrementally by release.
 
 ## Release Status
@@ -79,84 +78,76 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
   - auto-post controlled by `PRESTASHOP_AUTO_POST`
 
 ## Out of Scope in this iteration
-- Release 4 repairs
 - Release 5 subscriptions
 - Release 6 VeriFactu hash/QR/export logic
-=======
-IronCore is a multi-company ERP for Canary Islands companies operating under IGIC. Release 1 delivers a usable operational foundation with secure document vault, supplier bills, expenses, auditability, and admin UI.
 
-## System Architecture Overview
-- **Backend:** Laravel 11 + PHP 8.3
-- **Admin UI:** Filament v3 resources
-- **Auth/RBAC:** Spatie Laravel Permission roles (`admin`, `manager`, `staff`, `accountant_readonly`)
-- **Storage:** S3/MinIO-compatible document storage
-- **Core pattern:** multi-company context with global scoping and explicit company selector
+## Release 4 Addendum: Customer Signature + Pickup Confirmation Tablet Flow
+- Public tablet routes (unauthenticated):
+  - `GET /p/repairs/{token}`
+  - `POST /p/repairs/{token}/sign`
+  - `POST /p/repairs/{token}/feedback`
+- Security:
+  - one-time `public_tokens` with purpose scoping and expiry (default 30 minutes)
+  - token tied to company + repair + purpose
+  - token invalidated on successful use (`used_at`)
+  - rate-limited endpoints (`throttle:30,1`)
+- New persistence:
+  - `repair_signatures` (intake/pickup signatures + image hash)
+  - `repair_pickups` (pickup confirmation event)
+  - `repair_feedback` (1-5 rating + optional comment)
+  - `public_tokens` (generic public flow token table)
+- Signature capture:
+  - touch-friendly HTML canvas posts base64 PNG
+  - server stores PNG on configured disk and writes SHA-256 hash for integrity
+- Workflow integration:
+  - Filament `RepairResource` actions generate intake/pickup/feedback links
+  - pickup signature creates pickup record, confirms pickup, and sets repair status to `collected`
+  - repairs link to `sales_documents` via `linked_sales_document_id` only (no separate invoices table)
+  - configurable rule `REPAIRS_REQUIRE_INVOICE_BEFORE_PICKUP` blocks pickup signature until linked sales document exists and is `posted`
+- Reporting:
+  - repair signature image viewable from signatures relation
+  - pickup receipt PDF generated and stored as `documents` attachment on repair
 
-## Data Model Summary (Release 1)
-- `companies`: minimal company master (`name`, `tax_id`)
-- `company_settings`: single source of truth for fiscal configuration and invoice series prefixes JSON
-- `user_company`: user-company membership
-- `suppliers`
-- `documents`: file metadata records only
-- `document_attachments`: many-to-many polymorphic attachment links (`document_id` <-> `attachable`)
-- `tags`, `taggables`
-- `vendor_bills`, `vendor_bill_lines`
-- `expenses`, `expense_lines`
-- `audit_logs`
+- Signature files are stored as: `{company_id}/repairs/{repair_id}/{signature_type}/{timestamp}.png` with SHA-256 hash persisted in `repair_signatures.signature_hash`.
+- Pickup signature tokens can mint a new feedback token; token purposes are strict and enforced per endpoint.
+- If invoice-before-pickup fails, tablet endpoint responds with HTTP 409 and message: `Invoice must be posted before pickup.`
 
-## Entity Definitions
-- **Company** has one **CompanySetting**, many users/suppliers/bills/expenses/documents.
-- **Document** can attach to many entities through **DocumentAttachment**.
-- **VendorBill/Expense** follow status workflow and lock on posting.
-- **AuditLog** is append-only and records sensitive actions.
+## Release 5: Subscriptions / Recurring Billing
+- Policy: this module is generic and must not include domain-specific branding references.
+- Subscriptions always generate `sales_documents` through existing invoice core services.
 
-## UI Resources (Filament)
-- Companies (admin)
-- Users (admin)
-- Suppliers
-- Documents (upload + tag + supplier link)
-- Vendor Bills
-- Expenses
-- Tags
-- Audit Logs (read-only)
-- Company Context Switcher page
+### Entities
+- `subscription_plans` (company-scoped templates)
+  - `plan_type`: `subscription` or `service_contract`
+  - `interval_months` supports 3/6/12 and remains extensible
+  - defaults for doc type, series, auto-post, tax and price
+- `subscriptions` (company-scoped recurring contracts)
+  - optional plan link and per-subscription override fields
+  - states: `active`, `paused`, `cancelled`
+  - run fields: `starts_at`, `next_run_at`, optional `ends_at`
+- `subscription_items`
+  - line-level recurring items for future expansion
+- `subscription_runs`
+  - immutable run log for success/skipped/failed attempts
 
-## Workflows & State Machines
-- Vendor Bill: `draft -> approved -> posted -> cancelled`
-- Expense: `draft -> approved -> posted -> cancelled`
-- Posting computes totals from lines, sets `posted_at` and `locked_at`.
-- Locked records are immutable.
-- Deletion policy:
-  - posted/locked: never deletable
-  - draft: admin-only deletion with audit log
-- Cancellation requires reason and audit log entry.
+### Scheduling and execution
+- Command: `php artisan subscriptions:run-due`
+- Scheduler frequency: hourly
+- Service: `SubscriptionBillingService`
+  - computes stable next run via month interval
+  - processes due subscriptions (`next_run_at <= now`)
+  - skips paused/cancelled and ended subscriptions with run log entries
+  - handles per-subscription failures without stopping batch
 
-## Compliance Design Notes (VeriFactu Readiness)
-- Company fiscal setup centralized in `company_settings` for deterministic configuration.
-- Invoice series prefixes stored in JSON to align with future multi-series requirements.
-- Audit logging is enabled for approval/post/cancel/delete/override attempts.
-
-## Release 1 Checklist
-- [x] Corrected documents architecture for multi-attachment support (`document_attachments`).
-- [x] Enforced cancellation-based lifecycle for financial records.
-- [x] Added Eloquent models and relationships for Release 1 tables.
-- [x] Added service-layer posting/locking logic for vendor bills and expenses.
-- [x] Added Filament resources and company-context scaffolding.
-- [x] Added roles + default company + admin + default company settings seeders.
-
-## Assumptions
-- Full Laravel + Filament runtime wiring (providers/routes/views) is handled in the host application bootstrap.
-- S3 disk is configured as `s3` for document uploads.
-
-## TODO Roadmap
-- Harden policy classes and gate checks per resource action.
-- Add end-to-end HTTP/Filament tests.
-- Begin Release 2 only after UI validation pass in deployed app.
-
-
-## Release 1 Runtime Verification
-- Laravel bootstrap and Filament admin panel are now wired and runnable locally.
-- Docker compose includes MariaDB, Redis, and MinIO for local parity.
-- Filament workflows support bill/expense draft->approved->posted->cancelled with locking and audit logs.
-- Document upload/download is enabled and attachments can be linked to vendor bills and expenses via relation managers.
->>>>>>> main
+### Sales document generation
+- Effective config resolution order:
+  1. subscription overrides
+  2. plan defaults
+  3. company settings fallback (series)
+- Creates draft `sales_documents` with source ref format:
+  - `subscription:{subscription_id}:{run_date}`
+- Line source:
+  - `subscription_items` if present
+  - fallback single line from plan/subscription settings
+- If `auto_post` is true, document is posted and locked via existing sales posting workflow.
+- Each attempt writes `subscription_runs` and audit logs.

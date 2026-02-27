@@ -3,6 +3,8 @@
 namespace App\Domain\Repairs;
 
 use App\Domain\Audit\AuditLogger;
+use App\Models\Repair;
+use App\Models\RepairStatusHistory;
 use RuntimeException;
 
 final class RepairWorkflowService
@@ -57,7 +59,7 @@ final class RepairWorkflowService
     {
         $fromStatus = (string) ($repair['status'] ?? 'intake');
 
-        if (!in_array($toStatus, self::TRANSITIONS[$fromStatus] ?? [], true)) {
+        if (! in_array($toStatus, self::TRANSITIONS[$fromStatus] ?? [], true)) {
             throw new RuntimeException(sprintf('Invalid transition from %s to %s.', $fromStatus, $toStatus));
         }
 
@@ -79,13 +81,60 @@ final class RepairWorkflowService
         return $repair;
     }
 
+    public function transitionModel(Repair $repair, string $toStatus, int $userId, ?string $reason = null): Repair
+    {
+        $fromStatus = (string) $repair->status;
+
+        if (! in_array($toStatus, self::TRANSITIONS[$fromStatus] ?? [], true)) {
+            throw new RuntimeException(sprintf('Invalid transition from %s to %s.', $fromStatus, $toStatus));
+        }
+
+        if ($toStatus === 'collected' && ! $repair->signatures()->where('signature_type', 'pickup')->exists()) {
+            throw new RuntimeException('Cannot collect repair without pickup signature.');
+        }
+
+        if ($toStatus === 'invoiced') {
+            $salesDocument = $repair->linkedSalesDocument;
+            if (! $salesDocument || $salesDocument->status !== 'posted') {
+                throw new RuntimeException('Cannot mark invoiced without linked posted sales document.');
+            }
+        }
+
+        $repair->update(['status' => $toStatus]);
+
+        RepairStatusHistory::query()->create([
+            'company_id' => $repair->company_id,
+            'repair_id' => $repair->id,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'changed_by' => $userId,
+            'reason' => $reason,
+            'changed_at' => now(),
+        ]);
+
+        $this->auditLogger->record(
+            companyId: (int) $repair->company_id,
+            action: 'repair.status_changed',
+            auditableType: 'repair',
+            auditableId: (int) $repair->id,
+            userId: $userId,
+            payload: [
+                'from' => $fromStatus,
+                'to' => $toStatus,
+                'reason' => $reason,
+            ]
+        );
+
+        return $repair->refresh();
+    }
+
     /**
      * @param array<string, mixed> $repair
      * @return array<string, mixed>
      */
     public function overrideDiagnosticFee(array $repair, float $newNetFee, int $userId, string $reason, bool $isManager): array
     {
-        if (!$isManager) {
+        if (! $isManager) {
             throw new RuntimeException('Only manager can override diagnostic fee.');
         }
 

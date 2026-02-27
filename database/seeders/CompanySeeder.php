@@ -4,13 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Company;
 use App\Models\CompanySetting;
-<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
 use App\Models\Location;
 use App\Models\User;
 use App\Models\Warehouse;
-=======
+use App\Models\Location;
 use App\Models\User;
->>>>>>> main
+use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -36,7 +35,6 @@ class CompanySeeder extends Seeder
 
         $admin->assignRole('admin');
         $admin->companies()->syncWithoutDetaching([$company->id]);
-<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
 
         $warehouse = Warehouse::firstOrCreate(
             ['company_id' => $company->id, 'code' => 'MAIN'],
@@ -47,7 +45,5 @@ class CompanySeeder extends Seeder
             ['company_id' => $company->id, 'warehouse_id' => $warehouse->id, 'code' => 'DEF'],
             ['name' => 'Default', 'is_default' => true]
         );
-=======
->>>>>>> main
     }
 }

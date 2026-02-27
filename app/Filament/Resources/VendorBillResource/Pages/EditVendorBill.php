@@ -2,10 +2,8 @@
 
 namespace App\Filament\Resources\VendorBillResource\Pages;
 
-<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
 use App\Domain\Inventory\VendorBillStockIntegrationService;
-=======
->>>>>>> main
+use App\Domain\Inventory\VendorBillStockIntegrationService;
 use App\Filament\Resources\VendorBillResource;
 use App\Models\AuditLog;
 use Filament\Actions;
@@ -37,10 +35,8 @@ class EditVendorBill extends EditRecord
             Actions\Action::make('post')->visible(fn () => $this->record->status === 'approved')->action(function (): void {
                 $totals = $this->record->lines()->selectRaw('COALESCE(SUM(net_amount),0) net, COALESCE(SUM(tax_amount),0) tax, COALESCE(SUM(gross_amount),0) gross')->first();
                 $this->record->update(['status' => 'posted', 'net_total' => $totals->net, 'tax_total' => $totals->tax, 'gross_total' => $totals->gross, 'posted_at' => now(), 'locked_at' => now()]);
-<<<<<<< codex/implement-release-1-of-ironcore-erp-dift7s
                 app(VendorBillStockIntegrationService::class)->receiveForPostedBill($this->record);
-=======
->>>>>>> main
+                app(VendorBillStockIntegrationService::class)->receiveForPostedBill($this->record);
                 AuditLog::create(['company_id' => $this->record->company_id, 'user_id' => auth()->id(), 'action' => 'vendor_bill.posted', 'auditable_type' => 'vendor_bill', 'auditable_id' => $this->record->id]);
                 Notification::make()->title('Posted and locked')->success()->send();
             }),
