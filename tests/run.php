@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/Unit/VendorBillServiceTest.php';
+require_once __DIR__ . '/Unit/ExpenseServiceTest.php';
 require_once __DIR__ . '/Unit/DocumentServiceTest.php';
 require_once __DIR__ . '/Unit/VendorBillStockReceiverTest.php';
 require_once __DIR__ . '/Unit/InvoiceServiceTest.php';
@@ -10,6 +11,7 @@ require_once __DIR__ . '/Unit/RepairTimerAndPartsServiceTest.php';
 
 $tests = [
     'test_vendor_bill_posting_locks_and_logs',
+    'test_expense_posting_and_deletion_policy',
     'test_document_attachment_inherits_company_and_logs',
     'test_vendor_bill_posted_receipt_creates_stock_moves_and_updates_average_cost',
     'test_invoice_posting_assigns_series_number_and_locks',

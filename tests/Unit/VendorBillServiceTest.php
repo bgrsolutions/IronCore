@@ -15,23 +15,27 @@ function test_vendor_bill_posting_locks_and_logs(): void
         'id' => 10,
         'company_id' => 1,
         'status' => 'draft',
-        'gross_total' => 200.00,
+        'lines' => [
+            ['net_amount' => 100, 'tax_amount' => 7, 'gross_amount' => 107],
+            ['net_amount' => 50, 'tax_amount' => 3.5, 'gross_amount' => 53.5],
+        ],
     ];
 
     $approved = $service->approve($bill, userId: 99);
-    assert($approved['status'] === 'approved');
-
     $posted = $service->post($approved, userId: 99);
-    assert($posted['status'] === 'posted');
+    assert($posted['gross_total'] === 160.5);
     assert(!empty($posted['locked_at']));
+
+    $cancelled = $service->cancel($posted, 'Wrong supplier', userId: 99);
+    assert($cancelled['status'] === 'cancelled');
 
     $failed = false;
     try {
-        $service->update($posted, ['gross_total' => 250.00], userId: 99);
+        $service->delete($posted, isAdmin: true, userId: 99);
     } catch (RuntimeException) {
         $failed = true;
     }
 
     assert($failed === true);
-    assert(count($audit->all()) === 3);
+    assert(count($audit->all()) === 4);
 }

@@ -53,6 +53,10 @@ final class VendorBillService
             throw new RuntimeException('Bill is already locked.');
         }
 
+        $totals = $this->calculateTotals($bill['lines'] ?? []);
+        $bill['net_total'] = $totals['net_total'];
+        $bill['tax_total'] = $totals['tax_total'];
+        $bill['gross_total'] = $totals['gross_total'];
         $bill['status'] = 'posted';
         $bill['posted_at'] = gmdate('c');
         $bill['locked_at'] = $bill['posted_at'];
@@ -105,5 +109,63 @@ final class VendorBillService
         );
 
         return $merged;
+    }
+
+    /**
+     * @param array<string, mixed> $bill
+     * @return array<string, mixed>
+     */
+    public function cancel(array $bill, string $reason, int $userId): array
+    {
+        if (($bill['status'] ?? null) !== 'posted') {
+            throw new RuntimeException('Only posted bills can be cancelled.');
+        }
+
+        $bill['status'] = 'cancelled';
+        $bill['cancelled_at'] = gmdate('c');
+        $bill['cancel_reason'] = $reason;
+
+        $this->auditLogger->record((int) $bill['company_id'], 'vendor_bill.cancelled', 'vendor_bill', (int) $bill['id'], $userId, [
+            'reason' => $reason,
+        ]);
+
+        return $bill;
+    }
+
+    /**
+     * @param array<string, mixed> $bill
+     */
+    public function delete(array $bill, bool $isAdmin, int $userId): void
+    {
+        if (($bill['status'] ?? null) === 'posted' || !empty($bill['locked_at'])) {
+            throw new RuntimeException('Posted records cannot be deleted.');
+        }
+
+        if (($bill['status'] ?? null) !== 'draft' || !$isAdmin) {
+            throw new RuntimeException('Only admins can delete draft bills.');
+        }
+
+        $this->auditLogger->record((int) $bill['company_id'], 'vendor_bill.deleted', 'vendor_bill', (int) $bill['id'], $userId, [
+            'status' => $bill['status'] ?? null,
+        ]);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $lines
+     * @return array{net_total: float, tax_total: float, gross_total: float}
+     */
+    private function calculateTotals(array $lines): array
+    {
+        $net = 0.0;
+        $tax = 0.0;
+        $gross = 0.0;
+
+        foreach ($lines as $line) {
+            $net += (float) ($line['net_amount'] ?? 0);
+            $tax += (float) ($line['tax_amount'] ?? 0);
+            $gross += (float) ($line['gross_amount'] ?? 0);
+        }
+
+        return ['net_total' => round($net, 2), 'tax_total' => round($tax, 2), 'gross_total' => round($gross, 2)];
     }
 }

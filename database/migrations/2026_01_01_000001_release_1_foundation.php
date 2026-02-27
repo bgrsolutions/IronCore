@@ -11,11 +11,6 @@ return new class extends Migration {
             $table->id();
             $table->string('name');
             $table->string('tax_id')->nullable();
-            $table->string('tax_regime_label')->default('IGIC');
-            $table->string('default_currency', 3)->default('EUR');
-            $table->string('invoice_prefix_t', 12)->default('T');
-            $table->string('invoice_prefix_f', 12)->default('F');
-            $table->string('invoice_prefix_nc', 12)->default('NC');
             $table->timestamps();
         });
 
@@ -54,7 +49,6 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('supplier_id')->nullable()->constrained()->nullOnDelete();
-            $table->morphs('documentable');
             $table->string('disk')->default('s3');
             $table->string('path');
             $table->string('original_name');
@@ -65,6 +59,15 @@ return new class extends Migration {
             $table->timestamp('uploaded_at')->nullable();
             $table->timestamps();
             $table->index(['company_id', 'supplier_id', 'status', 'document_date']);
+        });
+
+        Schema::create('document_attachments', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('company_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('document_id')->constrained()->cascadeOnDelete();
+            $table->morphs('attachable');
+            $table->timestamp('created_at')->useCurrent();
+            $table->unique(['document_id', 'attachable_type', 'attachable_id']);
         });
 
         Schema::create('tags', function (Blueprint $table): void {
@@ -97,8 +100,9 @@ return new class extends Migration {
             $table->string('status')->default('draft');
             $table->timestamp('posted_at')->nullable();
             $table->timestamp('locked_at')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
+            $table->text('cancel_reason')->nullable();
             $table->timestamps();
-            $table->softDeletes();
             $table->unique(['company_id', 'supplier_id', 'invoice_number']);
             $table->index(['company_id', 'status', 'due_date']);
         });
@@ -130,8 +134,9 @@ return new class extends Migration {
             $table->string('status')->default('draft');
             $table->timestamp('posted_at')->nullable();
             $table->timestamp('locked_at')->nullable();
+            $table->timestamp('cancelled_at')->nullable();
+            $table->text('cancel_reason')->nullable();
             $table->timestamps();
-            $table->softDeletes();
             $table->index(['company_id', 'status', 'date']);
         });
 
@@ -170,6 +175,7 @@ return new class extends Migration {
         Schema::dropIfExists('vendor_bills');
         Schema::dropIfExists('taggables');
         Schema::dropIfExists('tags');
+        Schema::dropIfExists('document_attachments');
         Schema::dropIfExists('documents');
         Schema::dropIfExists('suppliers');
         Schema::dropIfExists('user_company');

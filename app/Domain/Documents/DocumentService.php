@@ -11,18 +11,16 @@ final class DocumentService
     }
 
     /**
-     * @param array<string, mixed> $documentable
+     * @param array<string, mixed> $attachable
      * @param array<string, mixed> $documentInput
-     * @return array<string, mixed>
+     * @return array{document: array<string, mixed>, attachment: array<string, mixed>}
      */
-    public function attach(array $documentable, array $documentInput, int $userId): array
+    public function attach(array $attachable, array $documentInput, int $userId): array
     {
         $document = [
             'id' => $documentInput['id'] ?? random_int(1000, 999999),
-            'company_id' => (int) $documentable['company_id'],
+            'company_id' => (int) $attachable['company_id'],
             'supplier_id' => $documentInput['supplier_id'] ?? null,
-            'documentable_type' => (string) $documentable['type'],
-            'documentable_id' => (int) $documentable['id'],
             'disk' => $documentInput['disk'] ?? 's3',
             'path' => (string) $documentInput['path'],
             'original_name' => (string) $documentInput['original_name'],
@@ -33,11 +31,19 @@ final class DocumentService
             'uploaded_at' => gmdate('c'),
         ];
 
+        $attachment = [
+            'company_id' => (int) $attachable['company_id'],
+            'document_id' => (int) $document['id'],
+            'attachable_type' => (string) $attachable['type'],
+            'attachable_id' => (int) $attachable['id'],
+            'created_at' => gmdate('c'),
+        ];
+
         $this->auditLogger->record(
             companyId: (int) $document['company_id'],
             action: 'document.attached',
-            auditableType: $document['documentable_type'],
-            auditableId: (int) $document['documentable_id'],
+            auditableType: $attachment['attachable_type'],
+            auditableId: (int) $attachment['attachable_id'],
             userId: $userId,
             payload: [
                 'document_id' => $document['id'],
@@ -46,6 +52,6 @@ final class DocumentService
             ]
         );
 
-        return $document;
+        return ['document' => $document, 'attachment' => $attachment];
     }
 }
