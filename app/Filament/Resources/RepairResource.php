@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Domain\Repairs\RepairPublicFlowService;
+use App\Domain\Repairs\RepairWorkflowService;
 use App\Filament\Concerns\HasCompanyScopedResource;
 use App\Filament\Resources\RepairResource\Pages;
 use App\Filament\Resources\RepairResource\RelationManagers\SignaturesRelationManager;
@@ -25,8 +26,22 @@ class RepairResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
+            Forms\Components\Placeholder::make('time_leak_warning')
+                ->label('⚠ Repair Time Leakage Alert')
+                ->content('Time logged but no labour billed.')
+                ->visible(function (?Repair $record): bool {
+                    if (! $record) {
+                        return false;
+                    }
+
+                    return app(RepairWorkflowService::class)->isTimeLeakBlocked($record);
+                }),
             Forms\Components\Select::make('customer_id')->options(Customer::query()->pluck('name', 'id'))->searchable(),
             Forms\Components\TextInput::make('status')->required()->default('intake'),
+            Forms\Components\Textarea::make('status_change_reason')
+                ->dehydrated(false)
+                ->rows(2)
+                ->helperText('Required for manager/admin when overriding time-leak transition blocks.'),
             Forms\Components\Select::make('linked_sales_document_id')
                 ->label('Linked sales document')
                 ->options(SalesDocument::query()->pluck('full_number', 'id'))

@@ -2,14 +2,16 @@
 
 require_once __DIR__ . '/../../app/Domain/Audit/AuditLogger.php';
 require_once __DIR__ . '/../../app/Domain/Repairs/RepairWorkflowService.php';
+require_once __DIR__ . '/../../app/Services/RepairMetricsService.php';
 
 use App\Domain\Audit\AuditLogger;
 use App\Domain\Repairs\RepairWorkflowService;
+use App\Services\RepairMetricsService;
 
 function test_repair_intake_adds_diagnostic_fee_and_transitions(): void
 {
     $audit = new AuditLogger();
-    $service = new RepairWorkflowService($audit);
+    $service = new RepairWorkflowService($audit, new RepairMetricsService());
 
     $repair = $service->intake(['id' => 10, 'company_id' => 1], 15);
     assert($repair['diagnostic_fee_added'] === true);
@@ -23,7 +25,7 @@ function test_repair_intake_adds_diagnostic_fee_and_transitions(): void
 function test_repair_diagnostic_override_requires_manager_and_reason(): void
 {
     $audit = new AuditLogger();
-    $service = new RepairWorkflowService($audit);
+    $service = new RepairWorkflowService($audit, new RepairMetricsService());
 
     $repair = ['id' => 11, 'company_id' => 1, 'diagnostic_fee_net' => 45.00];
 

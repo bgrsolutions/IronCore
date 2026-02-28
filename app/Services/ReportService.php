@@ -11,6 +11,7 @@ use App\Models\StockMove;
 use App\Models\Subscription;
 use App\Models\SubscriptionRun;
 use App\Models\VendorBill;
+use App\Services\RepairMetricsService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -324,7 +325,36 @@ final class ReportService
     /** @return array<int,array<string,mixed>> */
     public function deadStockRows(int $companyId): array
     {
-        return $this->computeMetrics($companyId, now()->subYear(), now())['inventory']['top_dead_stock_by_value'] ?? [];
+        $productCosts = ProductCost::query()->where('company_id', $companyId)->get()->keyBy('product_id');
+        $onHandByProduct = StockMove::query()
+            ->where('company_id', $companyId)
+            ->selectRaw('product_id, SUM(qty) as on_hand_qty')
+            ->groupBy('product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        return StockMove::query()
+            ->where('company_id', $companyId)
+            ->selectRaw('product_id, MAX(occurred_at) as last_moved_at')
+            ->groupBy('product_id')
+            ->get()
+            ->map(function ($row) use ($onHandByProduct, $productCosts): array {
+                $onHand = (float) optional($onHandByProduct->get($row->product_id))->on_hand_qty;
+                $avg = (float) optional($productCosts->get($row->product_id))->avg_cost;
+                $lastMoved = Carbon::parse($row->last_moved_at);
+
+                return [
+                    'product_id' => (int) $row->product_id,
+                    'days_without_move' => $lastMoved->diffInDays(now()),
+                    'value' => round(max(0, $onHand) * $avg, 2),
+                    'last_moved_at' => $lastMoved->toDateString(),
+                    'on_hand_qty' => round($onHand, 4),
+                ];
+            })
+            ->filter(fn (array $row): bool => $row['days_without_move'] >= 60 && $row['value'] > 0)
+            ->sortByDesc('value')
+            ->values()
+            ->all();
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -350,10 +380,14 @@ final class ReportService
     /** @return array<int,array<string,mixed>> */
     public function repairProfitabilityRows(int $companyId): array
     {
-        return Repair::query()->where('company_id', $companyId)->with('linkedSalesDocument')->get()->map(function (Repair $repair): array {
-            $logged = (int) DB::table('repair_time_entries')->where('repair_id', $repair->id)->sum('minutes');
+        $threshold = (int) config('repairs.time_leak_threshold_minutes', 15);
+        $metricsService = app(RepairMetricsService::class);
+
+        return Repair::query()->where('company_id', $companyId)->with('linkedSalesDocument')->get()->map(function (Repair $repair) use ($metricsService, $threshold): array {
+            $logged = $metricsService->loggedMinutes($repair);
             $partsCost = (float) DB::table('repair_parts')->where('repair_id', $repair->id)->sum('line_cost');
             $billed = (float) optional($repair->linkedSalesDocument)->net_total;
+            $hasLabour = $metricsService->hasLabourLines($repair);
 
             return [
                 'repair_id' => $repair->id,
@@ -361,6 +395,7 @@ final class ReportService
                 'billed_net' => round($billed, 2),
                 'parts_cost' => round($partsCost, 2),
                 'gross_profit_estimate' => round($billed - $partsCost, 2),
+                'time_leak_flag' => $logged > $threshold && ! $hasLabour,
             ];
         })->all();
     }

@@ -60,6 +60,11 @@ class Repair extends Model
         return $this->hasMany(RepairStatusHistory::class);
     }
 
+    public function lineItems(): HasMany
+    {
+        return $this->hasMany(RepairLineItem::class);
+    }
+
     public function documentAttachments(): MorphMany
     {
         return $this->morphMany(DocumentAttachment::class, 'attachable');

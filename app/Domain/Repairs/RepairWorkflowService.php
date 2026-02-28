@@ -3,8 +3,11 @@
 namespace App\Domain\Repairs;
 
 use App\Domain\Audit\AuditLogger;
+use App\Models\AuditLog;
 use App\Models\Repair;
 use App\Models\RepairStatusHistory;
+use App\Models\User;
+use App\Services\RepairMetricsService;
 use RuntimeException;
 
 final class RepairWorkflowService
@@ -21,7 +24,7 @@ final class RepairWorkflowService
         'invoiced' => [],
     ];
 
-    public function __construct(private readonly AuditLogger $auditLogger)
+    public function __construct(private readonly AuditLogger $auditLogger, private readonly RepairMetricsService $repairMetricsService)
     {
     }
 
@@ -100,6 +103,8 @@ final class RepairWorkflowService
             }
         }
 
+        $this->guardTimeLeakTransition($repair, $toStatus, $userId, $reason);
+
         $repair->update(['status' => $toStatus]);
 
         RepairStatusHistory::query()->create([
@@ -126,6 +131,49 @@ final class RepairWorkflowService
         );
 
         return $repair->refresh();
+    }
+
+    public function isTimeLeakBlocked(Repair $repair): bool
+    {
+        $requireLabour = (bool) config('repairs.require_labour_if_time_logged', true);
+
+        return $requireLabour && $this->repairMetricsService->hasTimeLeak($repair);
+    }
+
+    private function guardTimeLeakTransition(Repair $repair, string $toStatus, int $userId, ?string $reason): void
+    {
+        if (! in_array($toStatus, ['ready', 'collected'], true) || ! $this->isTimeLeakBlocked($repair)) {
+            return;
+        }
+
+        $loggedMinutes = $this->repairMetricsService->loggedMinutes($repair);
+        $threshold = (int) config('repairs.time_leak_threshold_minutes', 15);
+
+        $user = User::query()->find($userId);
+        if (! $user || ! $user->hasAnyRole(['manager', 'admin'])) {
+            throw new RuntimeException('Transition blocked: time logged but no labour billed. Manager/admin override required.');
+        }
+
+        if ((bool) config('repairs.manager_override_requires_reason', true) && trim((string) $reason) === '') {
+            throw new RuntimeException('Transition override reason is required.');
+        }
+
+        AuditLog::query()->create([
+            'company_id' => $repair->company_id,
+            'user_id' => $userId,
+            'action' => 'repair_time_leak_override',
+            'auditable_type' => 'repair',
+            'auditable_id' => $repair->id,
+            'payload' => [
+                'event_type' => 'repair_time_leak_override',
+                'reason' => $reason,
+                'repair_id' => $repair->id,
+                'logged_minutes' => $loggedMinutes,
+                'threshold' => $threshold,
+                'to_status' => $toStatus,
+            ],
+            'created_at' => now(),
+        ]);
     }
 
     /**

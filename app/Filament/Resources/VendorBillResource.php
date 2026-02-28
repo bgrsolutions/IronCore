@@ -37,6 +37,8 @@ class VendorBillResource extends Resource
                 Forms\Components\TextInput::make('net_amount')->numeric()->default(0),
                 Forms\Components\TextInput::make('tax_amount')->numeric()->default(0),
                 Forms\Components\TextInput::make('gross_amount')->numeric()->default(0),
+                Forms\Components\Toggle::make('cost_increase_flag')->label('Cost ↑')->disabled(),
+                Forms\Components\TextInput::make('cost_increase_percent')->label('Cost increase %')->disabled(),
                 Forms\Components\Hidden::make('company_id')->default(fn () => CompanyContext::get()),
             ])->columns(3),
             Forms\Components\TextInput::make('status')->disabled(),

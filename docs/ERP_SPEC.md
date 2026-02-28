@@ -239,3 +239,11 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
   - dead stock list
   - negative stock list
   - repair profitability list
+
+
+## Release 7.2 Control Packs B + C
+- Repairs config defaults: `time_leak_threshold_minutes=15`, `require_labour_if_time_logged=true`, `manager_override_requires_reason=true`, `labour_rate_per_hour_net=60.00`, `default_tax_rate=7.0`.
+- Repair leakage controls add `repair_line_items` labour quick-add and enforce manager/admin override for `ready` / `collected` transitions when logged time exceeds threshold without labour lines.
+- Audit events: `repair_time_leak_override`, `repair.labour_quick_add`, and `supplier_cost_increase`.
+- Supplier drift controls add `supplier_product_costs` history and line-level flags (`vendor_bill_lines.cost_increase_flag`, `cost_increase_percent`) when unit cost rises >5%.
+- Dead-stock exports now include `last_moved_at` and `on_hand_qty` in addition to product/value aging fields.
