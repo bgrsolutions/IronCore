@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasCompanyScopedResource;
 use App\Filament\Resources\ProductCompanyResource\Pages;
 use App\Models\Product;
 use App\Models\ProductCompany;
+use App\Models\ProductReorderSetting;
 use App\Models\Supplier;
 use App\Support\Company\CompanyContext;
 use Filament\Forms;
@@ -30,6 +31,18 @@ class ProductCompanyResource extends Resource
             Forms\Components\TextInput::make('sale_price')->numeric(),
             Forms\Components\TextInput::make('reorder_min_qty')->numeric(),
             Forms\Components\Select::make('preferred_supplier_id')->options(fn () => Supplier::query()->pluck('name', 'id')),
+
+            Forms\Components\Section::make('Reorder Settings')
+                ->schema([
+                    Forms\Components\Toggle::make('reorder_is_enabled')->default(true),
+                    Forms\Components\TextInput::make('reorder_lead_time_days')->numeric()->default(3),
+                    Forms\Components\TextInput::make('reorder_safety_days')->numeric()->default(7),
+                    Forms\Components\TextInput::make('reorder_min_days_cover')->numeric()->default(14),
+                    Forms\Components\TextInput::make('reorder_max_days_cover')->numeric()->default(30),
+                    Forms\Components\TextInput::make('reorder_min_order_qty')->numeric(),
+                    Forms\Components\TextInput::make('reorder_pack_size_qty')->numeric(),
+                    Forms\Components\Select::make('reorder_preferred_supplier_id')->options(fn () => Supplier::query()->pluck('name', 'id')),
+                ])->columns(2),
         ]);
     }
 
@@ -40,6 +53,15 @@ class ProductCompanyResource extends Resource
             Tables\Columns\TextColumn::make('sale_price'),
             Tables\Columns\TextColumn::make('reorder_min_qty'),
             Tables\Columns\IconColumn::make('is_active')->boolean(),
+            Tables\Columns\IconColumn::make('reorder_enabled')
+                ->label('Reorder Enabled')
+                ->state(function (ProductCompany $record): bool {
+                    return (bool) ProductReorderSetting::query()
+                        ->where('company_id', $record->company_id)
+                        ->where('product_id', $record->product_id)
+                        ->value('is_enabled');
+                })
+                ->boolean(),
         ]);
     }
 

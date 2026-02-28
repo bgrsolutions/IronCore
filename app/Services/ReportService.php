@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\ProductCost;
 use App\Models\Repair;
+use App\Models\ReorderSuggestion;
 use App\Models\ReportSnapshot;
 use App\Models\SalesDocument;
 use App\Models\StockMove;
@@ -443,6 +444,33 @@ final class ReportService
         })->filter(fn (array $row): bool => $row['margin'] < 0)->values()->all();
 
         return ['count' => count($rows), 'documents' => $rows];
+    }
+
+
+
+    /** @return array<int,array<string,mixed>> */
+    public function latestReorderSuggestionRows(int $companyId): array
+    {
+        $latest = ReorderSuggestion::query()->where('company_id', $companyId)->latest('generated_at')->first();
+        if (! $latest) {
+            return [];
+        }
+
+        return DB::table('reorder_suggestion_items')
+            ->join('products', 'products.id', '=', 'reorder_suggestion_items.product_id')
+            ->where('reorder_suggestion_items.reorder_suggestion_id', $latest->id)
+            ->select([
+                'products.name as product',
+                'reorder_suggestion_items.avg_daily_sold',
+                'reorder_suggestion_items.on_hand',
+                'reorder_suggestion_items.supplier_available',
+                'reorder_suggestion_items.suggested_qty',
+                'reorder_suggestion_items.estimated_spend',
+                'reorder_suggestion_items.reason',
+            ])
+            ->get()
+            ->map(fn ($r): array => (array) $r)
+            ->all();
     }
 
     /** @return Collection<int,Company> */

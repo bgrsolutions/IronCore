@@ -18,6 +18,7 @@ class ReportExportController extends Controller
             'dead-stock' => $service->deadStockRows($companyId),
             'negative-stock' => $service->negativeStockRows($companyId),
             'repair-profitability' => $service->repairProfitabilityRows($companyId),
+            'reorder-suggestions' => $service->latestReorderSuggestionRows($companyId),
             default => abort(404),
         };
 

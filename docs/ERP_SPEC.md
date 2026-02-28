@@ -247,3 +247,44 @@ IronCore is a multi-company ERP for Canary Islands companies (IGIC regime), buil
 - Audit events: `repair_time_leak_override`, `repair.labour_quick_add`, and `supplier_cost_increase`.
 - Supplier drift controls add `supplier_product_costs` history and line-level flags (`vendor_bill_lines.cost_increase_flag`, `cost_increase_percent`) when unit cost rises >5%.
 - Dead-stock exports now include `last_moved_at` and `on_hand_qty` in addition to product/value aging fields.
+
+
+## Release 8 Purchasing Intelligence + Reorder Suggestions
+
+### Data model
+- `product_reorder_settings`: per-company per-product reorder controls (`lead_time_days`, `safety_days`, cover targets, min order, pack size, preferred supplier).
+- `supplier_stock_snapshots` + `supplier_stock_snapshot_items`: external supplier warehouse stock snapshots imported via CSV/UI/API.
+- `reorder_suggestions` + `reorder_suggestion_items`: cached generation runs and per-product recommendations with quantity/spend/reason metadata.
+
+### Reorder algorithm
+For each enabled stock product:
+1. Compute `avg_daily_sold` from posted tickets/invoices net of credit notes over selected period (30/60/90 days).
+2. Compute current `on_hand` from stock ledger sums; negative stock remains allowed.
+3. Compute required coverage window:
+   - `required_window_days = lead_time_days + safety_days + min_days_cover`
+4. Compute raw suggestion:
+   - `target_qty = avg_daily_sold * required_window_days`
+   - `suggested_qty = max(0, target_qty - max(0, on_hand))`
+   - if `on_hand < 0`, urgency reason includes negative exposure (`abs(on_hand)`).
+5. Apply rounding rules:
+   - enforce `min_order_qty` if configured
+   - round up to `pack_size_qty` multiple when configured
+6. Estimate spend using supplier cost priority:
+   - `supplier_product_costs.last_unit_cost` first
+   - else latest supplier snapshot item `unit_cost`
+
+### Supplier stock import formats
+- Filament page supports CSV upload with explicit column mapping:
+  - `supplier_sku`, `barcode`, `product_name`, `qty_available`, `unit_cost`, `currency`, optional `sku`
+- API endpoint: `POST /api/integrations/supplier-stock/import` (integration token protected)
+  - accepts supplier, warehouse, and items array payload.
+- Matching priority on import:
+  1) barcode
+  2) sku
+  3) supplier_sku fallback to internal sku match
+
+### Filament pages and exports
+- `ReorderSuggestions`: generate + filter + CSV export for latest suggestion set.
+- `SupplierStockImport`: CSV import UI for supplier warehouse stock.
+- `SupplierStockSnapshots`: snapshot listing with matched/unmatched visibility and placeholder creation action for unmatched rows.
+- Export type added: `reorder-suggestions` via `/reports/export/reorder-suggestions`.

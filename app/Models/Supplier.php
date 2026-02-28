@@ -24,4 +24,9 @@ class Supplier extends Model
     {
         return $this->hasMany(Document::class);
     }
+
+    public function stockSnapshots(): HasMany
+    {
+        return $this->hasMany(SupplierStockSnapshot::class);
+    }
 }
