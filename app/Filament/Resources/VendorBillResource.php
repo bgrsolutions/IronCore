@@ -51,11 +51,38 @@ class VendorBillResource extends Resource
                 Forms\Components\Select::make('product_id')->relationship('product','name')->searchable(),
                 Forms\Components\Toggle::make('is_stock_item')->default(false),
                 Forms\Components\TextInput::make('description')->required(),
-                Forms\Components\TextInput::make('quantity')->numeric()->default(1),
-                Forms\Components\TextInput::make('unit_price')->numeric()->default(0),
-                Forms\Components\TextInput::make('net_amount')->numeric()->default(0),
-                Forms\Components\TextInput::make('tax_amount')->numeric()->default(0),
-                Forms\Components\TextInput::make('gross_amount')->numeric()->default(0),
+                Forms\Components\TextInput::make('quantity')->numeric()->default(1)->reactive()
+                    ->afterStateUpdated(function (callable $get, callable $set): void {
+                        $net = round(((float) ($get('quantity') ?? 0)) * ((float) ($get('unit_price') ?? 0)), 2);
+                        $set('net_amount', $net);
+                        $tax = round($net * ((float) ($get('tax_rate') ?? 0) / 100), 2);
+                        $set('tax_amount', $tax);
+                        $set('gross_amount', round($net + $tax, 2));
+                    }),
+                Forms\Components\TextInput::make('unit_price')->numeric()->default(0)->reactive()
+                    ->afterStateUpdated(function (callable $get, callable $set): void {
+                        $net = round(((float) ($get('quantity') ?? 0)) * ((float) ($get('unit_price') ?? 0)), 2);
+                        $set('net_amount', $net);
+                        $tax = round($net * ((float) ($get('tax_rate') ?? 0) / 100), 2);
+                        $set('tax_amount', $tax);
+                        $set('gross_amount', round($net + $tax, 2));
+                    }),
+                Forms\Components\TextInput::make('net_amount')->numeric()->default(0)->reactive()
+                    ->afterStateUpdated(function (callable $get, callable $set): void {
+                        $net = (float) ($get('net_amount') ?? 0);
+                        $tax = round($net * ((float) ($get('tax_rate') ?? 0) / 100), 2);
+                        $set('tax_amount', $tax);
+                        $set('gross_amount', round($net + $tax, 2));
+                    }),
+                Forms\Components\TextInput::make('tax_rate')->numeric()->required()->default(0)->reactive()
+                    ->afterStateUpdated(function (callable $get, callable $set): void {
+                        $net = (float) ($get('net_amount') ?? 0);
+                        $tax = round($net * ((float) ($get('tax_rate') ?? 0) / 100), 2);
+                        $set('tax_amount', $tax);
+                        $set('gross_amount', round($net + $tax, 2));
+                    }),
+                Forms\Components\TextInput::make('tax_amount')->numeric()->default(0)->disabled()->dehydrated(),
+                Forms\Components\TextInput::make('gross_amount')->numeric()->default(0)->disabled()->dehydrated(),
                 Forms\Components\Hidden::make('company_id')->default(fn () => CompanyContext::get()),
             ])->columns(3),
             Forms\Components\TextInput::make('status')->disabled(),

@@ -338,3 +338,48 @@ Flow:
 - Purchase plans in Release 9 are **operational execution tracking only**.
 - Inventory ledger posting remains with existing vendor bill stock receiving logic.
 - No full procurement accounting workflow is introduced in Release 9.
+
+## Release 10 — Accountant Export Pack + Vendor Bill IGIC tightening
+
+### Vendor bill IGIC tightening
+- `vendor_bill_lines.tax_rate` added as decimal(5,2).
+- Backfill logic for legacy rows:
+  - if `net_amount > 0`: `tax_rate = round((tax_amount / net_amount) * 100, 2)`
+  - else: `tax_rate = 0.00`
+- For MySQL/PostgreSQL deployments, column is tightened to NOT NULL with default `0.00` after backfill.
+- Vendor bill line editor now requires `tax_rate` and auto-calculates:
+  - `tax_amount = net_amount * tax_rate / 100`
+  - `gross_amount = net_amount + tax_amount`
+
+### Accountant export pack
+New tables:
+- `accountant_export_batches`
+- `accountant_export_files`
+
+Service:
+- `AccountantExportService::generateBatch(company_id, from, to, breakdown_by_store, user_id)`
+
+Generated files:
+- Sales:
+  - `sales_docs.csv`
+  - `sales_lines.csv`
+  - `sales_igic_summary.csv` (grouped by line-level `tax_rate`, optional store split)
+- Purchases:
+  - `vendor_bills.csv`
+  - `vendor_bill_lines.csv` (includes `tax_rate`)
+  - `purchase_igic_summary.csv`
+- Net summary:
+  - `igic_summary.csv` with `output_tax_total`, `input_tax_total`, `net_payable_estimate`
+
+Rules:
+- Credit notes reduce taxable base and IGIC totals (netting).
+- Grouping uses line-level tax rates.
+- Optional store breakdown is available in export generation.
+
+Bundle & integrity:
+- All CSVs are zipped into a single batch ZIP.
+- ZIP SHA256 and per-file SHA256 hashes are stored for traceability.
+
+### Filament UI
+- Added `AccountantExportBatchResource`.
+- Users can generate accountant packs using period presets (month, quarter, custom), review summary metadata and download ZIP files.

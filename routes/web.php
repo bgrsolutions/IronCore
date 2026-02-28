@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountantExportDownloadController;
 use App\Http\Controllers\DocumentDownloadController;
 use App\Http\Controllers\RepairTabletController;
 use App\Http\Controllers\ReportExportController;
@@ -23,6 +24,11 @@ Route::middleware('throttle:30,1')->group(function (): void {
     Route::post('/p/repairs/{token}/sign', [RepairTabletController::class, 'sign'])->name('public.repairs.sign');
     Route::post('/p/repairs/{token}/feedback', [RepairTabletController::class, 'feedback'])->name('public.repairs.feedback');
 });
+
+
+Route::get('/accountant-exports/{accountantExportBatch}/download', AccountantExportDownloadController::class)
+    ->middleware('auth')
+    ->name('accountant-exports.download');
 
 Route::get('/reports/export/{type}', ReportExportController::class)
     ->middleware('auth')

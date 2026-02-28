@@ -65,7 +65,7 @@ class PurchasePlanService
             'status' => $newReceived >= $ordered ? 'received' : 'ordered',
         ]);
 
-        $this->refreshPlanStatus($plan);
+        $this->refreshPlanStatus($plan->fresh(['items']));
 
         return $plan->fresh(['items']);
     }
