@@ -17,6 +17,12 @@ class EditRepair extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $record = $this->getRecord();
+        if (auth()->check() && ! auth()->user()->isManagerOrAdmin()) {
+            $allowed = auth()->user()->assignedStoreLocationIds();
+            if (! in_array((int) ($data['store_location_id'] ?? $record->store_location_id), $allowed, true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['store_location_id' => 'You are not assigned to this store.']);
+            }
+        }
         $targetStatus = (string) ($data['status'] ?? $record->status);
         $reason = $data['status_change_reason'] ?? 'Filament update';
 

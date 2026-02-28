@@ -5,6 +5,7 @@ namespace App\Filament\Resources\VendorBillResource\Pages;
 use App\Domain\Inventory\VendorBillStockIntegrationService;
 use App\Filament\Resources\VendorBillResource;
 use App\Models\AuditLog;
+use App\Services\PurchasePlanService;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -16,6 +17,13 @@ class EditVendorBill extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (auth()->check() && ! auth()->user()->isManagerOrAdmin()) {
+            $allowed = auth()->user()->assignedStoreLocationIds();
+            if (! in_array((int) ($data['store_location_id'] ?? $this->record->store_location_id), $allowed, true)) {
+                throw ValidationException::withMessages(['store_location_id' => 'You are not assigned to this store.']);
+            }
+        }
+
         if ($this->record->locked_at && ($this->record->status !== 'cancelled')) {
             throw ValidationException::withMessages(['status' => 'Posted vendor bills are locked.']);
         }
@@ -35,6 +43,7 @@ class EditVendorBill extends EditRecord
                 $totals = $this->record->lines()->selectRaw('COALESCE(SUM(net_amount),0) net, COALESCE(SUM(tax_amount),0) tax, COALESCE(SUM(gross_amount),0) gross')->first();
                 $this->record->update(['status' => 'posted', 'net_total' => $totals->net, 'tax_total' => $totals->tax, 'gross_total' => $totals->gross, 'posted_at' => now(), 'locked_at' => now()]);
                 app(VendorBillStockIntegrationService::class)->receiveForPostedBill($this->record);
+                app(PurchasePlanService::class)->syncReceivedFromVendorBill($this->record->fresh('lines'));
                 AuditLog::create(['company_id' => $this->record->company_id, 'user_id' => auth()->id(), 'action' => 'vendor_bill.posted', 'auditable_type' => 'vendor_bill', 'auditable_id' => $this->record->id]);
                 Notification::make()->title('Posted and locked')->success()->send();
             }),

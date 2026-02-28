@@ -14,7 +14,7 @@ class VendorBill extends Model
     use HasFactory;
     use BelongsToCompany;
 
-    protected $fillable = ['company_id', 'supplier_id', 'invoice_number', 'invoice_date', 'due_date', 'currency', 'net_total', 'tax_total', 'gross_total', 'status', 'posted_at', 'locked_at', 'cancelled_at', 'cancel_reason'];
+    protected $fillable = ['company_id', 'store_location_id', 'supplier_id', 'purchase_plan_id', 'invoice_number', 'invoice_date', 'due_date', 'currency', 'net_total', 'tax_total', 'gross_total', 'status', 'posted_at', 'locked_at', 'cancelled_at', 'cancel_reason'];
 
     protected $casts = ['invoice_date' => 'date', 'due_date' => 'date', 'posted_at' => 'datetime', 'locked_at' => 'datetime', 'cancelled_at' => 'datetime'];
 
@@ -26,6 +26,16 @@ class VendorBill extends Model
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    public function storeLocation(): BelongsTo
+    {
+        return $this->belongsTo(StoreLocation::class);
+    }
+
+    public function purchasePlan(): BelongsTo
+    {
+        return $this->belongsTo(PurchasePlan::class);
     }
 
     public function lines(): HasMany

@@ -14,6 +14,13 @@ class EditSalesDocument extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (auth()->check() && ! auth()->user()->isManagerOrAdmin()) {
+            $allowed = auth()->user()->assignedStoreLocationIds();
+            if (! in_array((int) ($data['store_location_id'] ?? $this->record->store_location_id), $allowed, true)) {
+                throw ValidationException::withMessages(['store_location_id' => 'You are not assigned to this store.']);
+            }
+        }
+
         if ($this->record->locked_at) {
             throw ValidationException::withMessages(['status' => 'Posted documents are immutable.']);
         }

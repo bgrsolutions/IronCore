@@ -15,7 +15,7 @@ class Repair extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'company_id', 'customer_id', 'linked_sales_document_id', 'status', 'device_brand', 'device_model', 'serial_number',
+        'company_id', 'store_location_id', 'customer_id', 'linked_sales_document_id', 'technician_user_id', 'status', 'device_brand', 'device_model', 'serial_number',
         'reported_issue', 'internal_notes', 'diagnostic_fee_added', 'diagnostic_fee_net', 'diagnostic_fee_tax_rate',
     ];
 
@@ -38,6 +38,16 @@ class Repair extends Model
     public function linkedSalesDocument(): BelongsTo
     {
         return $this->belongsTo(SalesDocument::class, 'linked_sales_document_id');
+    }
+
+    public function storeLocation(): BelongsTo
+    {
+        return $this->belongsTo(StoreLocation::class);
+    }
+
+    public function technician(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'technician_user_id');
     }
 
     public function signatures(): HasMany

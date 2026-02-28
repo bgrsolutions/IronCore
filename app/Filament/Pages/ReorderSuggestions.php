@@ -3,6 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\ReorderSuggestion;
+use App\Models\StoreLocation;
+use App\Models\Supplier;
+use App\Services\PurchasePlanService;
 use App\Services\ReorderSuggestionService;
 use App\Support\Company\CompanyContext;
 use Filament\Notifications\Notification;
@@ -19,12 +22,11 @@ class ReorderSuggestions extends Page
     protected static string $view = 'filament.pages.reorder-suggestions';
 
     public int $period_days = 30;
-
     public bool $filter_urgent = false;
-
     public bool $filter_no_supplier_stock = false;
-
     public bool $filter_high_spend = false;
+    public ?int $purchase_plan_supplier_id = null;
+    public ?int $purchase_plan_store_location_id = null;
 
     public function generate(): void
     {
@@ -39,14 +41,32 @@ class ReorderSuggestions extends Page
         Notification::make()->success()->title('Reorder suggestion generated')->send();
     }
 
+    public function createPurchasePlan(): void
+    {
+        $companyId = (int) CompanyContext::get();
+        $latest = ReorderSuggestion::query()->where('company_id', $companyId)->latest('generated_at')->first();
+        if (! $latest) {
+            Notification::make()->danger()->title('Generate suggestions before creating a purchase plan')->send();
+
+            return;
+        }
+
+        $itemIds = $latest->items()->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $plan = app(PurchasePlanService::class)->createFromSuggestionItems(
+            $companyId,
+            $itemIds,
+            $this->purchase_plan_supplier_id,
+            $this->purchase_plan_store_location_id,
+            auth()->id(),
+        );
+
+        Notification::make()->success()->title('Purchase plan #'.$plan->id.' created')->send();
+    }
+
     protected function getViewData(): array
     {
         $companyId = (int) CompanyContext::get();
-        $latest = ReorderSuggestion::query()
-            ->with('items.product')
-            ->where('company_id', $companyId)
-            ->latest('generated_at')
-            ->first();
+        $latest = ReorderSuggestion::query()->with('items.product')->where('company_id', $companyId)->latest('generated_at')->first();
 
         $rows = collect($latest?->items ?? [])->map(function ($item): array {
             return [
@@ -74,6 +94,8 @@ class ReorderSuggestions extends Page
         return [
             'latest' => $latest,
             'rows' => $rows->values()->all(),
+            'suppliers' => Supplier::query()->pluck('name', 'id')->all(),
+            'stores' => StoreLocation::query()->pluck('name', 'id')->all(),
         ];
     }
 }

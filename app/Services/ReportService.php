@@ -155,6 +155,14 @@ final class ReportService
 
         $topProfitProducts = $this->topProducts($salesDocs, 'profit');
         $topRevenueProducts = $this->topProducts($salesDocs, 'revenue');
+        $belowCostOverrideCount = DB::table('audit_logs')
+            ->where('company_id', $companyId)
+            ->where('action', 'below_cost_override')
+            ->whereBetween('created_at', [$from, $to])
+            ->count();
+        $avgBasket = $salesDocs->count() > 0 ? round(((float) $salesDocs->sum('gross_total')) / $salesDocs->count(), 2) : 0.0;
+        $kpiBreakdownByStore = $this->kpiBreakdownByStore($companyId, $from, $to);
+        $kpiBreakdownByUser = $this->kpiBreakdownByUser($companyId, $from, $to);
 
         return [
             'range' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
@@ -169,6 +177,8 @@ final class ReportService
                 'top_products_by_gross_profit' => array_slice($topProfitProducts, 0, 20),
                 'top_products_by_revenue' => array_slice($topRevenueProducts, 0, 20),
                 'below_cost_sales_last_7_days' => $this->belowCostSalesLastDays($companyId, 7),
+                'below_cost_override_count' => (int) $belowCostOverrideCount,
+                'avg_basket_value_gross' => $avgBasket,
             ],
             'repairs' => [
                 'repairs_count' => $repairs->count(),
@@ -199,6 +209,19 @@ final class ReportService
                 'unpaid_vendor_bills_count' => $postedBillsDue,
                 'bills_due_7d' => $billsDue7,
                 'bills_due_30d' => $billsDue30,
+            ],
+            'breakdown_by_store' => $kpiBreakdownByStore,
+            'breakdown_by_user' => $kpiBreakdownByUser,
+            'kpi' => [
+                'sales_margin_percent' => $grossMarginPercent,
+                'repairs_throughput' => [
+                    'created' => $repairs->count(),
+                    'invoiced' => $repairsInvoiced->count(),
+                    'collected' => $repairs->where('status', 'collected')->count(),
+                ],
+                'time_leakage_rate' => $this->repairLeakageRate($companyId),
+                'below_cost_overrides' => (int) $belowCostOverrideCount,
+                'subscription_mrr' => round($mrr, 2),
             ],
         ];
     }
@@ -471,6 +494,122 @@ final class ReportService
             ->get()
             ->map(fn ($r): array => (array) $r)
             ->all();
+    }
+
+
+    /** @return array<int,array<string,mixed>> */
+    public function kpiRowsByStore(int $companyId, Carbon $from, Carbon $to): array
+    {
+        return array_values($this->kpiBreakdownByStore($companyId, $from, $to));
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function kpiRowsByUser(int $companyId, Carbon $from, Carbon $to): array
+    {
+        return array_values($this->kpiBreakdownByUser($companyId, $from, $to));
+    }
+
+    /** @return array<string,array<string,mixed>> */
+    private function kpiBreakdownByStore(int $companyId, Carbon $from, Carbon $to): array
+    {
+        $docs = DB::table('sales_documents')
+            ->where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereBetween('issue_date', [$from, $to])
+            ->selectRaw('COALESCE(store_location_id, 0) as store_id, SUM(net_total) as revenue_net, SUM(gross_total) as revenue_gross, SUM(tax_total) as tax_total, COUNT(*) as docs_count')
+            ->groupBy('store_id')
+            ->get();
+
+        $repairRows = DB::table('repairs')
+            ->where('company_id', $companyId)
+            ->selectRaw('COALESCE(store_location_id, 0) as store_id, COUNT(*) as repairs_created, SUM(CASE WHEN status = "collected" THEN 1 ELSE 0 END) as repairs_collected')
+            ->groupBy('store_id')
+            ->get()
+            ->keyBy('store_id');
+
+        $rows = [];
+        foreach ($docs as $doc) {
+            $rows[(string) $doc->store_id] = [
+                'store_location_id' => (int) $doc->store_id,
+                'revenue_net' => round((float) $doc->revenue_net, 2),
+                'revenue_gross' => round((float) $doc->revenue_gross, 2),
+                'tax_total' => round((float) $doc->tax_total, 2),
+                'avg_basket_value' => (int) $doc->docs_count > 0 ? round(((float) $doc->revenue_gross) / ((int) $doc->docs_count), 2) : 0.0,
+                'repairs_created' => (int) optional($repairRows->get($doc->store_id))->repairs_created,
+                'repairs_collected' => (int) optional($repairRows->get($doc->store_id))->repairs_collected,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** @return array<string,array<string,mixed>> */
+    private function kpiBreakdownByUser(int $companyId, Carbon $from, Carbon $to): array
+    {
+        $docRows = DB::table('sales_documents')
+            ->where('company_id', $companyId)
+            ->where('status', 'posted')
+            ->whereBetween('issue_date', [$from, $to])
+            ->selectRaw('COALESCE(created_by_user_id, 0) as user_id, SUM(net_total) as revenue_net, SUM(gross_total) as revenue_gross, COUNT(*) as docs_count')
+            ->groupBy('user_id')
+            ->get();
+
+        $timeRows = DB::table('repair_time_entries')
+            ->join('repairs', 'repairs.id', '=', 'repair_time_entries.repair_id')
+            ->where('repairs.company_id', $companyId)
+            ->selectRaw('COALESCE(repair_time_entries.user_id, 0) as user_id, SUM(repair_time_entries.minutes) as minutes_logged')
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
+
+        $rows = [];
+        foreach ($docRows as $row) {
+            $rows[(string) $row->user_id] = [
+                'user_id' => (int) $row->user_id,
+                'revenue_net' => round((float) $row->revenue_net, 2),
+                'revenue_gross' => round((float) $row->revenue_gross, 2),
+                'gross_profit' => round((float) $row->revenue_net, 2),
+                'avg_basket_value' => (int) $row->docs_count > 0 ? round(((float) $row->revenue_gross) / ((int) $row->docs_count), 2) : 0.0,
+                'minutes_logged' => (int) optional($timeRows->get($row->user_id))->minutes_logged,
+                'labour_billed_net' => 0.0,
+                'technician_billed_vs_logged_ratio' => 0.0,
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function repairLeakageRate(int $companyId): float
+    {
+        $rows = $this->repairProfitabilityRows($companyId);
+        if (count($rows) === 0) {
+            return 0.0;
+        }
+
+        $flagged = collect($rows)->where('time_leak_flag', true)->count();
+
+        return round($flagged / count($rows), 4);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function purchasePlanRows(int $companyId): array
+    {
+        return DB::table('purchase_plans')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'purchase_plans.supplier_id')
+            ->where('purchase_plans.company_id', $companyId)
+            ->select(['purchase_plans.id', 'purchase_plans.status', 'purchase_plans.expected_at', 'suppliers.name as supplier'])
+            ->get()->map(fn ($r): array => (array) $r)->all();
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function openPurchasePlansRows(int $companyId): array
+    {
+        return DB::table('purchase_plans')
+            ->leftJoin('suppliers', 'suppliers.id', '=', 'purchase_plans.supplier_id')
+            ->where('purchase_plans.company_id', $companyId)
+            ->whereIn('purchase_plans.status', ['draft', 'ordered', 'partially_received'])
+            ->select(['purchase_plans.id', 'purchase_plans.status', 'purchase_plans.expected_at', 'suppliers.name as supplier'])
+            ->get()->map(fn ($r): array => (array) $r)->all();
     }
 
     /** @return Collection<int,Company> */

@@ -288,3 +288,53 @@ For each enabled stock product:
 - `SupplierStockImport`: CSV import UI for supplier warehouse stock.
 - `SupplierStockSnapshots`: snapshot listing with matched/unmatched visibility and placeholder creation action for unmatched rows.
 - Export type added: `reorder-suggestions` via `/reports/export/reorder-suggestions`.
+
+## Release 9 — Attribution, KPI Layer, and Purchasing Execution
+
+### Attribution model and permissions
+- Added `store_locations` table (`company_id`, `name`, optional `code`, `address`, `is_active`) with unique `(company_id, name)`.
+- Added `user_store_locations` pivot for staff-to-store assignments.
+- Added nullable `store_location_id` to `sales_documents`, `repairs`, and `vendor_bills`.
+- Added `technician_user_id` on repairs for technician attribution.
+- Added `User::isManagerOrAdmin()` and `User::assignedStoreLocationIds()` helpers.
+- Resource-level store scoping:
+  - non-manager users can only see records in assigned stores.
+  - manager/admin users see all stores.
+  - non-manager create/edit requires `store_location_id`.
+
+### KPI definitions and payload structure
+`report_snapshots.payload` now includes:
+- `kpi`
+  - `sales_margin_percent`
+  - `repairs_throughput` (`created`, `invoiced`, `collected`)
+  - `time_leakage_rate`
+  - `below_cost_overrides`
+  - `subscription_mrr`
+- `breakdown_by_store`
+  - per store: revenue net/gross/tax, avg basket value, repairs created/collected
+- `breakdown_by_user`
+  - per user: revenue net/gross, gross profit estimate, avg basket, minutes logged, labour billed net and ratio (best effort)
+
+Commands:
+- `reports:kpi-daily --date= --company=`
+- `reports:kpi-weekly --week-start= --company=`
+
+### Purchasing execution lifecycle
+Operational purchase tracking (non-accounting):
+- `purchase_plans`
+  - status lifecycle: `draft` → `ordered` → `partially_received` / `received` (or `cancelled`)
+  - optional `store_location_id`, optional `supplier_id`, planned/ordered/expected dates
+- `purchase_plan_items`
+  - carries suggested/ordered/received quantities and estimated cost
+  - links back to `reorder_suggestion_items` where created from reorder
+
+Flow:
+1. Reorder suggestions page can create a purchase plan from latest suggestion items.
+2. Purchase plan can be marked as ordered.
+3. Receive-items action increments `received_qty` and auto-updates item/plan status.
+4. Optional vendor bill linkage (`vendor_bills.purchase_plan_id`) syncs received quantities by matching posted bill lines to plan items.
+
+### Operational boundary
+- Purchase plans in Release 9 are **operational execution tracking only**.
+- Inventory ledger posting remains with existing vendor bill stock receiving logic.
+- No full procurement accounting workflow is introduced in Release 9.

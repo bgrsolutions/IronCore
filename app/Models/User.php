@@ -22,4 +22,20 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Company::class, 'user_company')->withTimestamps();
     }
+
+    public function storeLocations(): BelongsToMany
+    {
+        return $this->belongsToMany(StoreLocation::class, 'user_store_locations')->withTimestamps();
+    }
+
+    public function isManagerOrAdmin(): bool
+    {
+        return $this->hasAnyRole(['manager', 'admin']);
+    }
+
+    /** @return array<int,int> */
+    public function assignedStoreLocationIds(): array
+    {
+        return $this->storeLocations()->pluck('store_locations.id')->map(fn ($id): int => (int) $id)->all();
+    }
 }

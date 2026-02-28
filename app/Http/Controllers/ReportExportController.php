@@ -19,6 +19,10 @@ class ReportExportController extends Controller
             'negative-stock' => $service->negativeStockRows($companyId),
             'repair-profitability' => $service->repairProfitabilityRows($companyId),
             'reorder-suggestions' => $service->latestReorderSuggestionRows($companyId),
+            'kpi-store' => $service->kpiRowsByStore($companyId, now()->subDays(30)->startOfDay(), now()->endOfDay()),
+            'kpi-user' => $service->kpiRowsByUser($companyId, now()->subDays(30)->startOfDay(), now()->endOfDay()),
+            'purchase-plans' => $service->purchasePlanRows($companyId),
+            'open-purchase-plans' => $service->openPurchasePlansRows($companyId),
             default => abort(404),
         };
 

@@ -13,6 +13,24 @@
             <x-filament::button tag="a" href="{{ route('reports.export', ['type' => 'reorder-suggestions']) }}" color="success">CSV Export</x-filament::button>
         </div>
 
+        <x-filament::section heading="Create Purchase Plan">
+            <div class="flex flex-wrap gap-2">
+                <select wire:model="purchase_plan_supplier_id" class="fi-input block rounded-lg border-gray-300">
+                    <option value="">Any supplier</option>
+                    @foreach ($suppliers as $id => $name)
+                        <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+                <select wire:model="purchase_plan_store_location_id" class="fi-input block rounded-lg border-gray-300">
+                    <option value="">Company-wide</option>
+                    @foreach ($stores as $id => $name)
+                        <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+                <x-filament::button wire:click="createPurchasePlan" color="warning">Create Purchase Plan</x-filament::button>
+            </div>
+        </x-filament::section>
+
         <x-filament::section heading="Latest Suggestion Summary">
             <div class="text-sm">{{ json_encode($latest?->payload ?? []) }}</div>
         </x-filament::section>
