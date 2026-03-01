@@ -10,7 +10,7 @@ use Filament\Pages\Page;
 
 class CompanyPerformanceDashboard extends Page
 {
-    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $navigationGroup = 'Reporting';
 
     protected static ?string $navigationLabel = 'Company Performance';
 
@@ -19,6 +19,7 @@ class CompanyPerformanceDashboard extends Page
     protected static string $view = 'filament.pages.company-performance-dashboard';
 
     public ?string $from = null;
+
     public ?string $to = null;
 
     public function mount(): void

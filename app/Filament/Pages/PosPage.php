@@ -2,11 +2,11 @@
 
 namespace App\Filament\Pages;
 
-use App\Services\SalesDocumentService;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductCost;
 use App\Models\SalesDocument;
+use App\Services\SalesDocumentService;
 use App\Support\Company\CompanyContext;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -20,15 +20,22 @@ class PosPage extends Page implements HasForms
 {
     use InteractsWithForms;
 
+    protected static ?string $navigationGroup = 'Dashboard';
+
     protected static ?string $navigationLabel = 'POS';
+
+    protected static ?int $navigationSort = 30;
 
     protected static ?string $slug = 'pos';
 
     protected static string $view = 'filament.pages.pos-page';
 
     public ?int $customer_id = null;
+
     public ?string $barcode = null;
+
     public ?string $below_cost_override_reason = null;
+
     /** @var array<int, array<string,mixed>> */
     public array $lines = [];
 

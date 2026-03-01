@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\InventoryAlert;
 use App\Models\Product;
 use App\Models\ProductCost;
+use App\Models\ProductWarehouseStock;
 use App\Models\StockMove;
 use App\Support\Company\CompanyContext;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,7 @@ use RuntimeException;
 final class StockService
 {
     private const INFLOW_TYPES = ['receipt', 'adjustment_in', 'transfer_in', 'return_in'];
+
     private const OUTFLOW_TYPES = ['sale', 'adjustment_out', 'transfer_out', 'return_out'];
 
     /** @param array<string,mixed> $data */
@@ -43,7 +45,7 @@ final class StockService
             throw new RuntimeException('Invalid move type.');
         }
 
-        if (str_starts_with($moveType, 'adjustment_') && auth()->check() && ! auth()->user()->hasAnyRole(['admin','manager'])) {
+        if (str_starts_with($moveType, 'adjustment_') && auth()->check() && ! auth()->user()->hasAnyRole(['admin', 'manager'])) {
             throw new RuntimeException('Only manager/admin can post stock adjustments.');
         }
 
@@ -101,6 +103,12 @@ final class StockService
             $this->recalcAverageCost($companyId, (int) $data['product_id']);
         }
 
+        $this->syncWarehouseStock(
+            $companyId,
+            (int) $data['product_id'],
+            (int) $data['warehouse_id']
+        );
+
         $onHand = $this->getOnHand($companyId, (int) $data['product_id'], (int) $data['warehouse_id']);
         if ($onHand < 0) {
             InventoryAlert::query()->create([
@@ -135,6 +143,21 @@ final class StockService
         );
 
         return $cost;
+    }
+
+    private function syncWarehouseStock(int $companyId, int $productId, int $warehouseId): void
+    {
+        $onHand = $this->getOnHand($companyId, $productId, $warehouseId);
+
+        ProductWarehouseStock::query()->updateOrCreate(
+            [
+                'product_id' => $productId,
+                'warehouse_id' => $warehouseId,
+            ],
+            [
+                'quantity' => $onHand,
+            ]
+        );
     }
 
     public function getOnHand(int $companyId, int $productId, ?int $warehouseId = null): float

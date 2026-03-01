@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Supplier extends Model
 {
-    use HasFactory;
     use BelongsToCompany;
+    use HasFactory;
 
     protected $fillable = ['company_id', 'name', 'tax_id', 'email', 'phone', 'contact_name', 'address'];
 
@@ -28,5 +28,10 @@ class Supplier extends Model
     public function stockSnapshots(): HasMany
     {
         return $this->hasMany(SupplierStockSnapshot::class);
+    }
+
+    public function products(): HasMany
+    {
+        return $this->hasMany(Product::class);
     }
 }

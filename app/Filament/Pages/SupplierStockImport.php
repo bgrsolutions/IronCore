@@ -17,7 +17,7 @@ class SupplierStockImport extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $navigationGroup = 'Reporting';
 
     protected static ?string $navigationLabel = 'Supplier Stock Import';
 
@@ -26,8 +26,11 @@ class SupplierStockImport extends Page implements HasForms
     protected static string $view = 'filament.pages.supplier-stock-import';
 
     public ?int $supplier_id = null;
+
     public ?string $warehouse_name = null;
+
     public array $column_map = [];
+
     public ?string $csv_file = null;
 
     protected function getFormSchema(): array

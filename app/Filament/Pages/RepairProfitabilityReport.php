@@ -9,7 +9,7 @@ use Filament\Pages\Page;
 
 class RepairProfitabilityReport extends Page
 {
-    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $navigationGroup = 'Reporting';
 
     protected static ?string $navigationLabel = 'Repair Profitability';
 

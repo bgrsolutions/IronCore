@@ -8,12 +8,16 @@ use Filament\Pages\Page;
 
 class KpiDashboard extends Page
 {
-    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $navigationGroup = 'Reporting';
+
     protected static ?string $navigationLabel = 'KPI Dashboard';
+
     protected static ?string $slug = 'reports/kpi-dashboard';
+
     protected static string $view = 'filament.pages.kpi-dashboard';
 
     public ?string $from = null;
+
     public ?string $to = null;
 
     protected function getViewData(): array

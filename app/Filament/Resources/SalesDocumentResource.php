@@ -56,6 +56,19 @@ class SalesDocumentResource extends Resource
             Forms\Components\TextInput::make('series')->required()->default('T'),
             Forms\Components\Select::make('source')->options(['manual' => 'Manual', 'pos' => 'POS', 'prestashop' => 'PrestaShop'])->default('manual'),
             Forms\Components\DateTimePicker::make('issue_date')->default(now())->required(),
+            Forms\Components\Select::make('tax_mode')
+                ->options([
+                    'inherit_company' => 'Inherit Company',
+                    'tax_exempt' => 'Tax Exempt',
+                    'custom' => 'Custom',
+                ])
+                ->default('inherit_company')
+                ->required()
+                ->reactive(),
+            Forms\Components\TextInput::make('tax_rate')
+                ->label('Custom Tax %')
+                ->numeric()
+                ->visible(fn (callable $get) => $get('tax_mode') === 'custom'),
             Forms\Components\Repeater::make('lines')->relationship('lines')->schema([
                 Forms\Components\TextInput::make('line_no')->numeric()->required(),
                 Forms\Components\Select::make('product_id')->options(fn () => Product::query()->pluck('name', 'id'))->searchable(),
