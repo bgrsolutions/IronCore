@@ -31,7 +31,7 @@ return new class extends Migration {
             $table->dateTime('snapshot_at');
             $table->string('source', 50)->default('import');
             $table->timestamp('created_at')->useCurrent();
-            $table->index(['company_id', 'supplier_id', 'snapshot_at']);
+            $table->index(['company_id', 'supplier_id', 'snapshot_at'], 'sss_co_sup_snap_idx');
         });
 
         Schema::create('supplier_stock_snapshot_items', function (Blueprint $table): void {

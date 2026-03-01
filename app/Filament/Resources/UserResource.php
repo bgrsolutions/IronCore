@@ -14,6 +14,12 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
+    protected static ?string $navigationGroup = 'Admin';
+
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
+
+    protected static ?int $navigationSort = 20;
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -26,7 +32,11 @@ class UserResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([Tables\Columns\TextColumn::make('name'), Tables\Columns\TextColumn::make('email')]);
+        return $table->columns([Tables\Columns\TextColumn::make('name'), Tables\Columns\TextColumn::make('email')])->actions([
+            Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
+        ]);
     }
 
     public static function getPages(): array

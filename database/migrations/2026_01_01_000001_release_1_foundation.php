@@ -67,7 +67,7 @@ return new class extends Migration {
             $table->foreignId('document_id')->constrained()->cascadeOnDelete();
             $table->morphs('attachable');
             $table->timestamp('created_at')->useCurrent();
-            $table->unique(['document_id', 'attachable_type', 'attachable_id']);
+            $table->unique(['document_id', 'attachable_type', 'attachable_id'], 'doc_attach_uniq');
         });
 
         Schema::create('tags', function (Blueprint $table): void {

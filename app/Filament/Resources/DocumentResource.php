@@ -18,6 +18,14 @@ class DocumentResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = Document::class;
+    protected static ?string $navigationGroup = 'Repairs';
+
+    protected static ?string $navigationLabel = 'Public Repair Links';
+
+    protected static ?string $navigationIcon = 'heroicon-o-link';
+
+    protected static ?int $navigationSort = 30;
+
 
     public static function form(Form $form): Form
     {

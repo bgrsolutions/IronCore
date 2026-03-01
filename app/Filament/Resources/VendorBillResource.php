@@ -23,6 +23,14 @@ class VendorBillResource extends Resource
 
     protected static ?string $model = VendorBill::class;
 
+    protected static ?string $navigationGroup = 'Inventory';
+
+    protected static ?string $navigationIcon = 'heroicon-o-receipt-percent';
+
+    protected static ?string $navigationLabel = 'Vendor Bills';
+
+    protected static ?int $navigationSort = 40;
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
@@ -97,6 +105,10 @@ class VendorBillResource extends Resource
             Tables\Columns\TextColumn::make('supplier.name'),
             Tables\Columns\TextColumn::make('status')->badge(),
             Tables\Columns\TextColumn::make('gross_total')->money('EUR'),
+        ])->actions([
+            Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
         ]);
     }
 
