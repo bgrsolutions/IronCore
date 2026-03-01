@@ -19,7 +19,7 @@ class ExpenseResource extends Resource
 
     protected static ?string $model = Expense::class;
 
-    protected static ?string $navigationGroup = 'Inventory';
+    protected static ?string $navigationGroup = 'Purchasing';
 
     protected static ?string $navigationIcon = 'heroicon-o-banknotes';
 

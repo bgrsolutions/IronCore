@@ -10,7 +10,7 @@ use Filament\Pages\Page;
 
 class SupplierStockSnapshots extends Page
 {
-    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $navigationGroup = 'Reporting';
 
     protected static ?string $navigationLabel = 'Supplier Stock Snapshots';
 
