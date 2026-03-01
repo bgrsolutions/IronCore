@@ -16,6 +16,12 @@ class TagResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = Tag::class;
+    protected static ?string $navigationGroup = 'Admin';
+
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
+
+    protected static ?int $navigationSort = 50;
+
 
     public static function form(Form $form): Form
     {

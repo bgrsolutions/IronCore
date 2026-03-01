@@ -18,7 +18,13 @@ class StoreLocationResource extends Resource
 
     protected static ?string $model = StoreLocation::class;
 
-    protected static ?string $navigationGroup = 'Administration';
+    protected static ?string $navigationLabel = 'Check-in Locations';
+
+    protected static ?string $navigationIcon = 'heroicon-o-map-pin';
+
+    protected static ?int $navigationSort = 10;
+
+    protected static ?string $navigationGroup = 'Repairs';
 
     public static function canAccess(): bool
     {

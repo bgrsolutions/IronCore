@@ -18,6 +18,12 @@ class LocationResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = Location::class;
+    protected static ?string $navigationGroup = 'Inventory';
+
+    protected static ?string $navigationIcon = 'heroicon-o-map';
+
+    protected static ?int $navigationSort = 80;
+
 
     public static function form(Form $form): Form
     {

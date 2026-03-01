@@ -17,6 +17,12 @@ class SubscriptionPlanResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = SubscriptionPlan::class;
+    protected static ?string $navigationGroup = 'Sales';
+
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-list';
+
+    protected static ?int $navigationSort = 20;
+
 
 
     public static function canViewAny(): bool

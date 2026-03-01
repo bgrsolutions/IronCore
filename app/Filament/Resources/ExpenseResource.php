@@ -19,6 +19,12 @@ class ExpenseResource extends Resource
 
     protected static ?string $model = Expense::class;
 
+    protected static ?string $navigationGroup = 'Inventory';
+
+    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+
+    protected static ?int $navigationSort = 50;
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -47,6 +53,10 @@ class ExpenseResource extends Resource
             Tables\Columns\TextColumn::make('category'),
             Tables\Columns\TextColumn::make('status')->badge(),
             Tables\Columns\TextColumn::make('gross_total')->money('EUR'),
+        ])->actions([
+            Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
         ]);
     }
 

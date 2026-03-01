@@ -14,6 +14,14 @@ class StockMoveResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = StockMove::class;
+    protected static ?string $navigationGroup = 'Inventory';
+
+    protected static ?string $navigationLabel = 'Stock Ledger';
+
+    protected static ?string $navigationIcon = 'heroicon-o-arrows-right-left';
+
+    protected static ?int $navigationSort = 90;
+
 
     public static function table(Table $table): Table
     {

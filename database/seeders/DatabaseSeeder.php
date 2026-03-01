@@ -10,7 +10,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->call([RoleSeeder::class, CompanySeeder::class]);
+        $this->call([RoleSeeder::class, PermissionSeeder::class, CompanySeeder::class]);
 
         Company::query()->pluck('id')->each(function (int $companyId): void {
             CompanySetting::firstOrCreate(

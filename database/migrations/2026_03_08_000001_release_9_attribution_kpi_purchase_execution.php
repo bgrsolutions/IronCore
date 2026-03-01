@@ -28,7 +28,7 @@ return new class extends Migration {
 
         Schema::table('sales_documents', function (Blueprint $table): void {
             $table->foreignId('store_location_id')->nullable()->after('company_id')->constrained('store_locations')->nullOnDelete();
-            $table->index(['company_id', 'store_location_id', 'posted_at']);
+            $table->index(['company_id', 'store_location_id', 'posted_at'], 'sd_company_store_posted_idx');
         });
 
         Schema::table('repairs', function (Blueprint $table): void {

@@ -15,6 +15,12 @@ class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
+    protected static ?string $navigationGroup = 'CRM';
+
+    protected static ?string $navigationIcon = 'heroicon-o-users';
+
+    protected static ?int $navigationSort = 10;
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -30,6 +36,10 @@ class CustomerResource extends Resource
             Tables\Columns\TextColumn::make('name')->searchable(),
             Tables\Columns\TextColumn::make('email'),
             Tables\Columns\TextColumn::make('phone'),
+        ])->actions([
+            Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
         ]);
     }
 

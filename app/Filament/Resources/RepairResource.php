@@ -26,6 +26,12 @@ class RepairResource extends Resource
 
     protected static ?string $model = Repair::class;
 
+    protected static ?string $navigationGroup = 'Repairs';
+
+    protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
+
+    protected static ?int $navigationSort = 20;
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
@@ -90,6 +96,8 @@ class RepairResource extends Resource
                 Notification::make()->success()->title(route('public.repairs.show', $token->token))->send();
             }),
             Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
         ]);
     }
 
