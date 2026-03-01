@@ -2,11 +2,13 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductCost;
 use App\Models\SalesDocument;
 use App\Services\SalesDocumentService;
+use App\Services\SalesPricingService;
 use App\Support\Company\CompanyContext;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -45,11 +47,47 @@ class PosPage extends Page implements HasForms
             Select::make('customer_id')->options(Customer::query()->pluck('name', 'id'))->searchable()->label('Customer (optional)'),
             TextInput::make('barcode')->label('Barcode quick entry'),
             Repeater::make('lines')->schema([
-                Select::make('product_id')->options(Product::query()->pluck('name', 'id'))->searchable(),
+                Select::make('product_id')
+                    ->options(Product::query()->pluck('name', 'id'))
+                    ->searchable()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $get, callable $set): void {
+                        if (! $state) {
+                            return;
+                        }
+
+                        $company = Company::query()->find((int) CompanyContext::get());
+                        $product = Product::query()->find((int) $state);
+                        if (! $company || ! $product) {
+                            return;
+                        }
+
+                        $qty = (float) ($get('qty') ?? 1);
+                        $pricing = app(SalesPricingService::class)->calculateLineForProduct(
+                            $product,
+                            $company,
+                            $qty,
+                            'inherit_company',
+                            null
+                        );
+
+                        $set('description', $get('description') ?: $product->name);
+                        $set('unit_price', $pricing['unit_price']);
+                        $set('tax_rate', $pricing['tax_rate']);
+                        $set('line_net', $pricing['line_net']);
+                        $set('line_tax', $pricing['line_tax']);
+                        $set('line_gross', $pricing['line_gross']);
+                    }),
                 TextInput::make('description')->required(),
-                TextInput::make('qty')->numeric()->default(1),
-                TextInput::make('unit_price')->numeric()->default(0),
-                TextInput::make('tax_rate')->numeric()->default(7),
+                TextInput::make('qty')->numeric()->default(1)->reactive()
+                    ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateLine($get, $set)),
+                TextInput::make('unit_price')->numeric()->default(0)->reactive()
+                    ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateLine($get, $set)),
+                TextInput::make('tax_rate')->numeric()->default(0)->reactive()
+                    ->afterStateUpdated(fn (callable $get, callable $set) => self::recalculateLine($get, $set)),
+                TextInput::make('line_net')->numeric()->disabled()->dehydrated(false),
+                TextInput::make('line_tax')->numeric()->disabled()->dehydrated(false),
+                TextInput::make('line_gross')->numeric()->disabled()->dehydrated(false),
                 TextInput::make('margin_estimate')
                     ->label('Margin estimate')
                     ->disabled()
@@ -76,6 +114,19 @@ class PosPage extends Page implements HasForms
         ];
     }
 
+    private static function recalculateLine(callable $get, callable $set): void
+    {
+        $totals = app(SalesPricingService::class)->calculateLineTotals(
+            (float) ($get('unit_price') ?? 0),
+            (float) ($get('qty') ?? 0),
+            (float) ($get('tax_rate') ?? 0)
+        );
+
+        $set('line_net', $totals['line_net']);
+        $set('line_tax', $totals['line_tax']);
+        $set('line_gross', $totals['line_gross']);
+    }
+
     public function postTicket(): void
     {
         $doc = SalesDocument::create([
@@ -86,16 +137,28 @@ class PosPage extends Page implements HasForms
             'status' => 'draft',
             'issue_date' => now(),
             'source' => 'pos',
+            'tax_mode' => 'inherit_company',
+            'tax_rate' => null,
             'created_by_user_id' => auth()->id(),
         ]);
+
+        $company = Company::query()->findOrFail((int) CompanyContext::get());
 
         foreach ($this->lines as $i => $line) {
             $qty = (float) ($line['qty'] ?? 1);
             $unit = (float) ($line['unit_price'] ?? 0);
-            $taxRate = (float) ($line['tax_rate'] ?? 7);
-            $net = round($qty * $unit, 2);
-            $tax = round($net * ($taxRate / 100), 2);
-            $gross = round($net + $tax, 2);
+            $taxRate = isset($line['tax_rate']) ? (float) $line['tax_rate'] : app(SalesPricingService::class)->resolveSalesTaxRate('inherit_company', null, $company);
+
+            if (! empty($line['product_id'])) {
+                $product = Product::query()->find((int) $line['product_id']);
+                if ($product) {
+                    $landedCost = app(SalesPricingService::class)->calculateLandedCost($product, $company);
+                    app(SalesPricingService::class)->enforceMinimumPrice($unit, $landedCost);
+                }
+            }
+
+            $totals = app(SalesPricingService::class)->calculateLineTotals($unit, $qty, $taxRate);
+
             $doc->lines()->create([
                 'line_no' => $i + 1,
                 'product_id' => $line['product_id'] ?? null,
@@ -103,9 +166,9 @@ class PosPage extends Page implements HasForms
                 'qty' => $qty,
                 'unit_price' => $unit,
                 'tax_rate' => $taxRate,
-                'line_net' => $net,
-                'line_tax' => $tax,
-                'line_gross' => $gross,
+                'line_net' => $totals['line_net'],
+                'line_tax' => $totals['line_tax'],
+                'line_gross' => $totals['line_gross'],
             ]);
         }
 

@@ -20,7 +20,8 @@ final class SalesDocumentService
     public function __construct(
         private readonly StockService $stockService,
         private readonly VeriFactuService $veriFactuService,
-        private readonly CompanyTaxResolver $companyTaxResolver
+        private readonly CompanyTaxResolver $companyTaxResolver,
+        private readonly SalesPricingService $salesPricingService
     ) {}
 
     public function post(SalesDocument $doc, ?string $belowCostOverrideReason = null): SalesDocument
@@ -44,6 +45,7 @@ final class SalesDocumentService
             $company = $document->company()->firstOrFail();
             $resolvedTaxRate = $this->companyTaxResolver->resolveSalesTaxRate($document, $company);
 
+            $this->assertLinesRespectMinimumPrice($lines, $company);
             $this->applyResolvedTaxToLines($lines, $resolvedTaxRate);
             $lines = $document->lines()->orderBy('line_no')->lockForUpdate()->get();
             $totals = $this->computeTotalsFromLines($lines);
@@ -110,6 +112,24 @@ final class SalesDocumentService
             ->max('number');
 
         return ((int) $current) + 1;
+    }
+
+    /** @param Collection<int, SalesDocumentLine> $lines */
+    private function assertLinesRespectMinimumPrice(Collection $lines, \App\Models\Company $company): void
+    {
+        foreach ($lines as $line) {
+            if (! $line->product_id) {
+                continue;
+            }
+
+            $product = Product::query()->find((int) $line->product_id);
+            if (! $product) {
+                continue;
+            }
+
+            $landedCost = $this->salesPricingService->calculateLandedCost($product, $company);
+            $this->salesPricingService->enforceMinimumPrice((float) $line->unit_price, $landedCost);
+        }
     }
 
     /** @param Collection<int, SalesDocumentLine> $lines */
