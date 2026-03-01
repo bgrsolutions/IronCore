@@ -46,7 +46,23 @@ class ProductResource extends Resource
         ]);
     }
 
-    public static function getPages(): array
+    
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+public static function getPages(): array
     {
         return ['index' => Pages\ListProducts::route('/'), 'create' => Pages\CreateProduct::route('/create'), 'edit' => Pages\EditProduct::route('/{record}/edit')];
     }

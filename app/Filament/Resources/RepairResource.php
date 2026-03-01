@@ -106,7 +106,23 @@ class RepairResource extends Resource
         return [SignaturesRelationManager::class];
     }
 
-    public static function getPages(): array
+    
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+public static function getPages(): array
     {
         return [
             'index' => Pages\ListRepairs::route('/'),

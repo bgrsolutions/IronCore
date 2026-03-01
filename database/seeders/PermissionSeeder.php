@@ -12,47 +12,45 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         $resources = [
+            'accountant_export_batches',
+            'audit_logs',
             'companies',
-            'users',
             'customers',
-            'suppliers',
-            'products',
-            'product_companies',
-            'warehouses',
-            'locations',
-            'store_locations',
-            'stock_moves',
             'documents',
-            'vendor_bills',
             'expenses',
+            'locations',
+            'product_companies',
+            'products',
+            'purchase_plans',
             'repairs',
             'sales_documents',
-            'subscriptions',
+            'stock_moves',
+            'store_locations',
             'subscription_plans',
             'subscription_runs',
-            'purchase_plans',
-            'accountant_exports',
-            'verifactu_exports',
-            'audit_logs',
+            'subscriptions',
+            'suppliers',
             'tags',
+            'users',
+            'vendor_bills',
+            'verifactu_exports',
+            'warehouses',
         ];
 
-        $abilities = ['viewAny', 'view', 'create', 'update', 'delete'];
+        $actions = ['view_any', 'view', 'create', 'update', 'delete'];
 
-        $permissionNames = [];
         foreach ($resources as $resource) {
-            foreach ($abilities as $ability) {
-                $permissionNames[] = sprintf('%s %s', $ability, $resource);
+            foreach ($actions as $action) {
+                Permission::findOrCreate("{$resource}.{$action}", 'web');
             }
         }
 
-        foreach ($permissionNames as $permissionName) {
-            Permission::findOrCreate($permissionName, 'web');
+        $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $adminRole->syncPermissions(Permission::query()->pluck('name'));
+
+        $adminUser = User::query()->where('email', 'admin@ironcore.local')->first();
+        if ($adminUser !== null && ! $adminUser->hasRole($adminRole)) {
+            $adminUser->assignRole($adminRole);
         }
-
-        $adminRole = Role::findOrCreate('admin', 'web');
-        $adminRole->syncPermissions(Permission::query()->pluck('name')->all());
-
-        User::role('admin')->get()->each(fn (User $user) => $user->syncPermissions([]));
     }
 }

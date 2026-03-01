@@ -12,12 +12,20 @@ MINIO_ENDPOINT="${MINIO_ENDPOINT:-http://127.0.0.1:9000}"
 MINIO_KEY="${MINIO_KEY:-minio}"
 MINIO_SECRET="${MINIO_SECRET:-miniopassword}"
 MINIO_BUCKET="${MINIO_BUCKET:-ironcore-documents}"
+QUEUE_SERVICE_PATH="/etc/systemd/system/ironcore-artisan-queue.service"
 
-log() { printf '\n[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
+log() {
+  printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
+}
 
-require_root() {
+run_in_repo() {
+  cd "$REPO_DIR"
+  "$@"
+}
+
+ensure_root() {
   if [[ "${EUID}" -ne 0 ]]; then
-    log "Re-running installer with sudo..."
+    log "Re-running installer with sudo"
     exec sudo -E bash "$0" "$@"
   fi
 }
@@ -26,31 +34,41 @@ apt_install() {
   DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
 }
 
-install_system_dependencies() {
-  log "Installing system dependencies"
+install_base_packages() {
+  log "Installing base packages"
   apt-get update
   apt_install ca-certificates curl gnupg lsb-release software-properties-common git unzip ufw
 }
 
-install_docker() {
+install_docker_and_compose() {
   if ! command -v docker >/dev/null 2>&1; then
     log "Installing Docker Engine + Compose plugin"
     install -m 0755 -d /etc/apt/keyrings
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     chmod a+r /etc/apt/keyrings/docker.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+
+    local codename
+    codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+    cat > /etc/apt/sources.list.d/docker.list <<EOF
+
+deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${codename} stable
+EOF
     apt-get update
     apt_install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   fi
+
   systemctl enable --now docker
 }
 
-install_php84() {
-  if ! php -v 2>/dev/null | head -n1 | grep -q 'PHP 8.4'; then
-    log "Installing PHP 8.4 and extensions"
+install_php_84() {
+  if ! php -v 2>/dev/null | head -n 1 | grep -q 'PHP 8.4'; then
+    log "Installing PHP 8.4 and required extensions"
     add-apt-repository -y ppa:ondrej/php
     apt-get update
-    apt_install php8.4 php8.4-cli php8.4-common php8.4-fpm php8.4-mysql php8.4-xml php8.4-curl php8.4-mbstring php8.4-zip php8.4-bcmath php8.4-intl php8.4-gd php8.4-redis php8.4-sqlite3
+    apt_install \
+      php8.4 php8.4-cli php8.4-common php8.4-fpm php8.4-mysql php8.4-sqlite3 \
+      php8.4-xml php8.4-curl php8.4-mbstring php8.4-zip php8.4-bcmath php8.4-intl \
+      php8.4-gd php8.4-redis
     update-alternatives --set php /usr/bin/php8.4 || true
   fi
 }
@@ -62,7 +80,7 @@ install_composer() {
   fi
 }
 
-install_node20() {
+install_node_20() {
   if ! command -v node >/dev/null 2>&1 || ! node -v | grep -q '^v20'; then
     log "Installing Node.js 20"
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -70,8 +88,26 @@ install_node20() {
   fi
 }
 
-prepare_env() {
-  log "Preparing Laravel environment file"
+start_compose_services() {
+  log "Starting Docker services"
+  run_in_repo docker compose up -d
+}
+
+create_minio_bucket() {
+  log "Ensuring MinIO bucket exists: ${MINIO_BUCKET}"
+  mkdir -p /var/lib/ironcore/mc
+
+  docker run --rm --network host \
+    -v /var/lib/ironcore/mc:/root/.mc \
+    minio/mc alias set local "$MINIO_ENDPOINT" "$MINIO_KEY" "$MINIO_SECRET"
+
+  docker run --rm --network host \
+    -v /var/lib/ironcore/mc:/root/.mc \
+    minio/mc mb --ignore-existing "local/${MINIO_BUCKET}"
+}
+
+prepare_env_file() {
+  log "Preparing .env file"
   cd "$REPO_DIR"
   [[ -f .env ]] || cp .env.example .env
 
@@ -88,37 +124,26 @@ prepare_env() {
   sed -i "s|^AWS_BUCKET=.*|AWS_BUCKET=${MINIO_BUCKET}|" .env
 }
 
-start_infra() {
-  log "Starting MariaDB, Redis, and MinIO"
-  cd "$REPO_DIR"
-  docker compose up -d
+bootstrap_laravel() {
+  log "Installing PHP dependencies"
+  run_in_repo composer install --no-interaction --prefer-dist
+
+  log "Installing frontend dependencies"
+  run_in_repo npm install
+  run_in_repo npm run build
+
+  log "Running Laravel bootstrap commands"
+  run_in_repo php artisan config:clear
+  run_in_repo php artisan cache:clear
+  run_in_repo php artisan key:generate --force
+  run_in_repo php artisan migrate --seed --force
+  run_in_repo php artisan storage:link || true
+  run_in_repo php artisan optimize
 }
 
-create_minio_bucket() {
-  log "Creating MinIO bucket: ${MINIO_BUCKET}"
-  mkdir -p /var/lib/ironcore/mc
-  docker run --rm --network host -v /var/lib/ironcore/mc:/root/.mc minio/mc alias set local "$MINIO_ENDPOINT" "$MINIO_KEY" "$MINIO_SECRET"
-  docker run --rm --network host -v /var/lib/ironcore/mc:/root/.mc minio/mc mb --ignore-existing "local/${MINIO_BUCKET}"
-}
-
-install_app() {
-  log "Installing PHP and Node dependencies"
-  cd "$REPO_DIR"
-  composer install --no-interaction --prefer-dist
-  npm install
-  npm run build
-
-  log "Running Laravel bootstrap tasks"
-  php artisan config:clear
-  php artisan cache:clear
-  php artisan key:generate --force
-  php artisan migrate --seed --force
-  php artisan storage:link || true
-  php artisan optimize
-}
-
-write_systemd_hint() {
-  cat > /etc/systemd/system/ironcore-artisan-queue.service <<SERVICE
+write_optional_systemd_service() {
+  log "Writing optional queue worker service"
+  cat > "$QUEUE_SERVICE_PATH" <<EOF
 [Unit]
 Description=IronCore queue worker
 After=network.target docker.service
@@ -133,25 +158,29 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
-SERVICE
+EOF
+
   systemctl daemon-reload
-  log "Created optional service: /etc/systemd/system/ironcore-artisan-queue.service"
 }
 
 main() {
-  require_root "$@"
-  install_system_dependencies
-  install_docker
-  install_php84
+  ensure_root "$@"
+  install_base_packages
+  install_docker_and_compose
+  install_php_84
   install_composer
-  install_node20
-  start_infra
-  create_minio_bucket
-  prepare_env
-  install_app
-  write_systemd_hint
+  install_node_20
 
-  log "Install complete. Login with admin@ironcore.local / password"
+  start_compose_services
+  create_minio_bucket
+
+  prepare_env_file
+  bootstrap_laravel
+  write_optional_systemd_service
+
+  log "Install complete"
+  log "Application URL: ${APP_URL}"
+  log "Admin login: admin@ironcore.local / password"
 }
 
 main "$@"

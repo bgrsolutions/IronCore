@@ -48,7 +48,23 @@ class CustomerResource extends Resource
         return [CustomerCompaniesRelationManager::class];
     }
 
-    public static function getPages(): array
+    
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+public static function getPages(): array
     {
         return ['index' => Pages\ListCustomers::route('/'), 'create' => Pages\CreateCustomer::route('/create'), 'edit' => Pages\EditCustomer::route('/{record}/edit')];
     }

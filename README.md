@@ -107,6 +107,19 @@ php artisan permission:cache-reset || true
 
 Also ensure your user has role `admin`.
 
+
+## Verification Runbook
+
+Run these checks after a fresh bootstrap (or in CI):
+
+```bash
+bash -n scripts/install_ubuntu24.sh
+php -l database/seeders/PermissionSeeder.php
+php -l database/seeders/DatabaseSeeder.php
+php artisan migrate:fresh --seed --force
+php artisan test --filter=FilamentAuthTest
+```
+
 ## Notes
 
 - Default disk is S3-compatible MinIO (`FILESYSTEM_DISK=s3`).

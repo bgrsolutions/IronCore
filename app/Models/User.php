@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory;
     use Notifiable;
@@ -28,7 +30,13 @@ class User extends Authenticatable
         return $this->belongsToMany(StoreLocation::class, 'user_store_locations')->withTimestamps();
     }
 
-    public function isManagerOrAdmin(): bool
+    
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->hasRole('admin');
+    }
+public function isManagerOrAdmin(): bool
     {
         return $this->hasAnyRole(['manager', 'admin']);
     }
