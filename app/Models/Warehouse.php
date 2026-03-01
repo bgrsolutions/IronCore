@@ -10,10 +10,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Warehouse extends Model
 {
-    use HasFactory;
     use BelongsToCompany;
+    use HasFactory;
 
-    protected $fillable = ['company_id', 'name', 'code', 'is_default'];
+    protected $fillable = [
+        'company_id',
+        'name',
+        'code',
+        'type',
+        'address_street',
+        'address_city',
+        'address_region',
+        'address_postcode',
+        'address_country',
+        'contact_name',
+        'contact_email',
+        'contact_phone',
+        'is_default',
+        'counts_for_stock',
+        'is_external_supplier_stock',
+    ];
 
     public function company(): BelongsTo
     {
@@ -23,5 +39,10 @@ class Warehouse extends Model
     public function locations(): HasMany
     {
         return $this->hasMany(Location::class);
+    }
+
+    public function productStocks(): HasMany
+    {
+        return $this->hasMany(ProductWarehouseStock::class);
     }
 }

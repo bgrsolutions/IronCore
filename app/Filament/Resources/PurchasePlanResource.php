@@ -27,7 +27,7 @@ class PurchasePlanResource extends Resource
 
     protected static ?int $navigationSort = 60;
 
-    protected static ?string $navigationGroup = 'Inventory';
+    protected static ?string $navigationGroup = 'Purchasing';
 
     public static function form(Form $form): Form
     {

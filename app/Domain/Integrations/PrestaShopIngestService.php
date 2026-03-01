@@ -2,12 +2,12 @@
 
 namespace App\Domain\Integrations;
 
-use App\Services\SalesDocumentService;
 use App\Models\Customer;
 use App\Models\CustomerCompany;
 use App\Models\IntegrationRun;
 use App\Models\Product;
 use App\Models\SalesDocument;
+use App\Services\SalesDocumentService;
 use Illuminate\Support\Arr;
 
 final class PrestaShopIngestService
@@ -41,6 +41,8 @@ final class PrestaShopIngestService
                 'issue_date' => now(),
                 'source' => 'prestashop',
                 'source_ref' => (string) ($payload['order_id'] ?? $payload['order_reference'] ?? ''),
+                'tax_mode' => 'inherit_company',
+                'tax_rate' => null,
                 'created_by_user_id' => auth()->id(),
             ]);
 

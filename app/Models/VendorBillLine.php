@@ -9,12 +9,36 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VendorBillLine extends Model
 {
-    use HasFactory;
     use BelongsToCompany;
+    use HasFactory;
 
-    protected $fillable = ['company_id', 'vendor_bill_id', 'product_id', 'is_stock_item', 'description', 'quantity', 'unit_price', 'net_amount', 'tax_rate', 'tax_amount', 'gross_amount', 'cost_increase_flag', 'cost_increase_percent'];
+    protected $fillable = [
+        'company_id',
+        'vendor_bill_id',
+        'product_id',
+        'ean',
+        'is_stock_item',
+        'description',
+        'quantity',
+        'unit_price',
+        'net_amount',
+        'tax_rate',
+        'margin_percent',
+        'suggested_net_sale_price',
+        'tax_amount',
+        'gross_amount',
+        'cost_increase_flag',
+        'cost_increase_percent',
+    ];
 
-    protected $casts = ['is_stock_item' => 'boolean', 'cost_increase_flag' => 'boolean', 'tax_rate' => 'decimal:2', 'cost_increase_percent' => 'decimal:2'];
+    protected $casts = [
+        'is_stock_item' => 'boolean',
+        'cost_increase_flag' => 'boolean',
+        'tax_rate' => 'decimal:2',
+        'margin_percent' => 'decimal:3',
+        'suggested_net_sale_price' => 'decimal:2',
+        'cost_increase_percent' => 'decimal:2',
+    ];
 
     public function vendorBill(): BelongsTo
     {
