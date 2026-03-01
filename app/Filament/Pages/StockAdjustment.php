@@ -8,8 +8,8 @@ use App\Models\Product;
 use App\Models\Warehouse;
 use App\Support\Company\CompanyContext;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -24,17 +24,26 @@ class StockAdjustment extends Page implements HasForms
 
     use InteractsWithForms;
 
+    protected static ?string $navigationGroup = 'Dashboard';
+
     protected static ?string $navigationLabel = 'Stock Adjustment';
+
+    protected static ?int $navigationSort = 50;
 
     protected static ?string $slug = 'stock-adjustment';
 
     protected static string $view = 'filament.pages.stock-adjustment';
 
     public ?int $product_id = null;
+
     public ?int $warehouse_id = null;
+
     public ?int $location_id = null;
+
     public ?float $qty = null;
+
     public ?float $unit_cost = null;
+
     public ?string $note = null;
 
     protected function getFormSchema(): array

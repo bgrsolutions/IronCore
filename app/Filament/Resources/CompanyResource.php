@@ -25,6 +25,17 @@ class CompanyResource extends Resource
         return $form->schema([
             Forms\Components\TextInput::make('name')->required(),
             Forms\Components\TextInput::make('tax_id'),
+            Forms\Components\TextInput::make('purchase_tax_rate')
+                ->label('Purchase Tax %')
+                ->numeric()
+                ->default(0),
+            Forms\Components\Toggle::make('sales_tax_enabled')
+                ->label('Sales Tax Enabled')
+                ->default(true),
+            Forms\Components\TextInput::make('sales_tax_rate')
+                ->label('Sales Tax %')
+                ->numeric()
+                ->default(0),
         ]);
     }
 
@@ -33,6 +44,9 @@ class CompanyResource extends Resource
         return $table->columns([
             Tables\Columns\TextColumn::make('name')->searchable(),
             Tables\Columns\TextColumn::make('tax_id'),
+            Tables\Columns\TextColumn::make('purchase_tax_rate')->label('Purchase Tax %'),
+            Tables\Columns\IconColumn::make('sales_tax_enabled')->label('Sales Tax Enabled')->boolean(),
+            Tables\Columns\TextColumn::make('sales_tax_rate')->label('Sales Tax %'),
         ])->actions([
             Tables\Actions\EditAction::make(),
         ])->bulkActions([

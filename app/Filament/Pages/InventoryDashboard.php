@@ -3,16 +3,20 @@
 namespace App\Filament\Pages;
 
 use App\Domain\Inventory\StockService;
+use App\Models\InventoryAlert;
 use App\Models\ProductCompany;
 use App\Models\ProductCost;
 use App\Models\StockMove;
-use App\Models\InventoryAlert;
 use App\Support\Company\CompanyContext;
 use Filament\Pages\Page;
 
 class InventoryDashboard extends Page
 {
+    protected static ?string $navigationGroup = 'Dashboard';
+
     protected static ?string $navigationLabel = 'Inventory Dashboard';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $slug = 'inventory-dashboard';
 

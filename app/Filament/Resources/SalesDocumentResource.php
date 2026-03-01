@@ -4,11 +4,13 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasCompanyScopedResource;
 use App\Filament\Resources\SalesDocumentResource\Pages;
+use App\Models\Company;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ProductCost;
 use App\Models\SalesDocument;
 use App\Models\StoreLocation;
+use App\Services\SalesPricingService;
 use App\Support\Company\CompanyContext;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -56,13 +58,67 @@ class SalesDocumentResource extends Resource
             Forms\Components\TextInput::make('series')->required()->default('T'),
             Forms\Components\Select::make('source')->options(['manual' => 'Manual', 'pos' => 'POS', 'prestashop' => 'PrestaShop'])->default('manual'),
             Forms\Components\DateTimePicker::make('issue_date')->default(now())->required(),
+            Forms\Components\Select::make('tax_mode')
+                ->options([
+                    'inherit_company' => 'Inherit Company',
+                    'tax_exempt' => 'Tax Exempt',
+                    'custom' => 'Custom',
+                ])
+                ->default('inherit_company')
+                ->required()
+                ->reactive(),
+            Forms\Components\TextInput::make('tax_rate')
+                ->label('Custom Tax %')
+                ->numeric()
+                ->visible(fn (callable $get) => $get('tax_mode') === 'custom'),
             Forms\Components\Repeater::make('lines')->relationship('lines')->schema([
                 Forms\Components\TextInput::make('line_no')->numeric()->required(),
-                Forms\Components\Select::make('product_id')->options(fn () => Product::query()->pluck('name', 'id'))->searchable(),
+                Forms\Components\Select::make('product_id')
+                    ->options(fn () => Product::query()->pluck('name', 'id'))
+                    ->searchable()
+                    ->reactive()
+                    ->afterStateUpdated(function ($state, callable $get, callable $set): void {
+                        if (! $state) {
+                            return;
+                        }
+
+                        $companyId = (int) ($get('../../company_id') ?? CompanyContext::get());
+                        $company = Company::query()->find($companyId);
+                        $product = Product::query()->find((int) $state);
+                        if (! $company || ! $product) {
+                            return;
+                        }
+
+                        $qty = (float) ($get('qty') ?? 1);
+                        $pricing = app(SalesPricingService::class)->calculateLineForProduct(
+                            $product,
+                            $company,
+                            $qty,
+                            $get('../../tax_mode'),
+                            $get('../../tax_rate') !== null ? (float) $get('../../tax_rate') : null
+                        );
+
+                        $set('description', $get('description') ?: $product->name);
+                        $set('unit_price', $pricing['unit_price']);
+                        $set('tax_rate', $pricing['tax_rate']);
+                        $set('line_net', $pricing['line_net']);
+                        $set('line_tax', $pricing['line_tax']);
+                        $set('line_gross', $pricing['line_gross']);
+                    }),
                 Forms\Components\TextInput::make('description')->required(),
-                Forms\Components\TextInput::make('qty')->numeric()->required(),
-                Forms\Components\TextInput::make('unit_price')->numeric()->required(),
-                Forms\Components\TextInput::make('tax_rate')->numeric()->default(7)->required(),
+                Forms\Components\TextInput::make('qty')
+                    ->numeric()
+                    ->required()
+                    ->default(1)
+                    ->reactive()
+                    ->afterStateUpdated(fn (callable $get, callable $set) => static::recalculateManualLine($get, $set)),
+                Forms\Components\TextInput::make('unit_price')
+                    ->numeric()
+                    ->required()
+                    ->reactive()
+                    ->afterStateUpdated(fn (callable $get, callable $set) => static::recalculateManualLine($get, $set)),
+                Forms\Components\TextInput::make('tax_rate')->numeric()->required()->reactive()
+                    ->afterStateUpdated(fn (callable $get, callable $set) => static::recalculateManualLine($get, $set)),
                 Forms\Components\TextInput::make('line_net')->numeric()->required(),
                 Forms\Components\TextInput::make('line_tax')->numeric()->required(),
                 Forms\Components\TextInput::make('line_gross')->numeric()->required(),
@@ -85,6 +141,18 @@ class SalesDocumentResource extends Resource
             Forms\Components\Textarea::make('below_cost_override_reason')->dehydrated(false),
             Forms\Components\TextInput::make('status')->disabled(),
         ]);
+    }
+
+    private static function recalculateManualLine(callable $get, callable $set): void
+    {
+        $unitPrice = (float) ($get('unit_price') ?? 0);
+        $quantity = (float) ($get('qty') ?? 0);
+        $taxRate = (float) ($get('tax_rate') ?? 0);
+
+        $totals = app(SalesPricingService::class)->calculateLineTotals($unitPrice, $quantity, $taxRate);
+        $set('line_net', $totals['line_net']);
+        $set('line_tax', $totals['line_tax']);
+        $set('line_gross', $totals['line_gross']);
     }
 
     public static function table(Table $table): Table

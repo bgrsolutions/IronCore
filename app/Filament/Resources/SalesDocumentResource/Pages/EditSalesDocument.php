@@ -2,8 +2,11 @@
 
 namespace App\Filament\Resources\SalesDocumentResource\Pages;
 
-use App\Services\SalesDocumentService;
 use App\Filament\Resources\SalesDocumentResource;
+use App\Models\Company;
+use App\Models\Product;
+use App\Services\SalesDocumentService;
+use App\Services\SalesPricingService;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +27,30 @@ class EditSalesDocument extends EditRecord
         if ($this->record->locked_at) {
             throw ValidationException::withMessages(['status' => 'Posted documents are immutable.']);
         }
+
+        $company = Company::query()->find((int) ($data['company_id'] ?? $this->record->company_id));
+        if ($company) {
+            foreach ((array) ($data['lines'] ?? []) as $index => $line) {
+                $productId = (int) ($line['product_id'] ?? 0);
+                if ($productId <= 0) {
+                    continue;
+                }
+
+                $product = Product::query()->find($productId);
+                if (! $product) {
+                    continue;
+                }
+
+                $landed = app(SalesPricingService::class)->calculateLandedCost($product, $company);
+                $unit = (float) ($line['unit_price'] ?? 0);
+                if ($unit + 0.00001 < $landed) {
+                    throw ValidationException::withMessages([
+                        "lines.{$index}.unit_price" => 'Selling net price cannot be below landed cost.',
+                    ]);
+                }
+            }
+        }
+
         return $data;
     }
 
