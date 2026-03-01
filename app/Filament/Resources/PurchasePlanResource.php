@@ -21,7 +21,13 @@ class PurchasePlanResource extends Resource
 
     protected static ?string $model = PurchasePlan::class;
 
-    protected static ?string $navigationGroup = 'Purchasing';
+    protected static ?string $navigationLabel = 'Purchasing Intelligence';
+
+    protected static ?string $navigationIcon = 'heroicon-o-chart-bar-square';
+
+    protected static ?int $navigationSort = 60;
+
+    protected static ?string $navigationGroup = 'Inventory';
 
     public static function form(Form $form): Form
     {

@@ -23,6 +23,12 @@ class SalesDocumentResource extends Resource
 
     protected static ?string $model = SalesDocument::class;
 
+    protected static ?string $navigationGroup = 'Sales';
+
+    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+
+    protected static ?int $navigationSort = 10;
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
@@ -90,6 +96,10 @@ class SalesDocumentResource extends Resource
             Tables\Columns\TextColumn::make('status')->badge(),
             Tables\Columns\TextColumn::make('issue_date')->dateTime(),
             Tables\Columns\TextColumn::make('gross_total')->money('EUR'),
+        ])->actions([
+            Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
         ]);
     }
 

@@ -15,6 +15,12 @@ class CompanyContextSwitcher extends Page implements HasForms
 
     protected static ?string $navigationLabel = 'Company Context';
 
+    protected static ?string $navigationGroup = 'Admin';
+
+    protected static ?string $navigationIcon = 'heroicon-o-building-office';
+
+    protected static ?int $navigationSort = 5;
+
     protected static ?string $slug = 'company-context';
 
     protected static string $view = 'filament.pages.company-context-switcher';

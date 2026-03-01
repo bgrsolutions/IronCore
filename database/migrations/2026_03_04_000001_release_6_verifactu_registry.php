@@ -31,7 +31,7 @@ return new class extends Migration {
             $table->dateTime('included_at');
             $table->timestamp('created_at')->useCurrent();
 
-            $table->unique(['verifactu_export_id', 'sales_document_id']);
+            $table->unique(['verifactu_export_id', 'sales_document_id'], 'vf_export_item_uniq');
         });
 
         Schema::create('verifactu_events', function (Blueprint $table): void {

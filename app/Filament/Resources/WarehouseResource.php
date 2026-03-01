@@ -17,6 +17,12 @@ class WarehouseResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = Warehouse::class;
+    protected static ?string $navigationGroup = 'Inventory';
+
+    protected static ?string $navigationIcon = 'heroicon-o-home-modern';
+
+    protected static ?int $navigationSort = 70;
+
 
     public static function form(Form $form): Form
     {
