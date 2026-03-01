@@ -183,7 +183,7 @@ wait_for_services() {
 
   log "Waiting for MariaDB readiness"
   for _ in {1..60}; do
-    if run_as_app_user "docker compose exec -T mariadb mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent" >/dev/null 2>&1; then
+    if run_as_app_user "docker compose exec -T mariadb mariadb-admin ping -h 127.0.0.1 -u"$DB_USERNAME" -p"$DB_PASSWORD" --silent" >/dev/null 2>&1; then
       mariadb_ready=1
       break
     fi
