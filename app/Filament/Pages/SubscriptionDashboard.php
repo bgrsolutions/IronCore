@@ -9,7 +9,11 @@ use Filament\Pages\Page;
 
 class SubscriptionDashboard extends Page
 {
+    protected static ?string $navigationGroup = 'Dashboard';
+
     protected static ?string $navigationLabel = 'Subscription Dashboard';
+
+    protected static ?int $navigationSort = 60;
 
     protected static ?string $slug = 'subscription-dashboard';
 

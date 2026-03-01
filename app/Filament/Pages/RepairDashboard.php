@@ -7,7 +7,11 @@ use Filament\Pages\Page;
 
 class RepairDashboard extends Page
 {
+    protected static ?string $navigationGroup = 'Dashboard';
+
     protected static ?string $navigationLabel = 'Repair Dashboard';
+
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $slug = 'repair-dashboard';
 

@@ -13,7 +13,7 @@ use Filament\Pages\Page;
 
 class ReorderSuggestions extends Page
 {
-    protected static ?string $navigationGroup = 'Reports';
+    protected static ?string $navigationGroup = 'Reporting';
 
     protected static ?string $navigationLabel = 'Reorder Suggestions';
 
@@ -22,10 +22,15 @@ class ReorderSuggestions extends Page
     protected static string $view = 'filament.pages.reorder-suggestions';
 
     public int $period_days = 30;
+
     public bool $filter_urgent = false;
+
     public bool $filter_no_supplier_stock = false;
+
     public bool $filter_high_spend = false;
+
     public ?int $purchase_plan_supplier_id = null;
+
     public ?int $purchase_plan_store_location_id = null;
 
     public function generate(): void
