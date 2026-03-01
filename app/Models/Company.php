@@ -38,4 +38,9 @@ class Company extends Model
     {
         return $this->hasMany(PurchasePlan::class);
     }
+
+    public function productPricings(): HasMany
+    {
+        return $this->hasMany(ProductCompanyPricing::class);
+    }
 }
