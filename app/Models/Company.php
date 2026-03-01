@@ -12,7 +12,19 @@ class Company extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'tax_id'];
+    protected $fillable = [
+        'name',
+        'tax_id',
+        'purchase_tax_rate',
+        'sales_tax_enabled',
+        'sales_tax_rate',
+    ];
+
+    protected $casts = [
+        'sales_tax_enabled' => 'boolean',
+        'purchase_tax_rate' => 'decimal:2',
+        'sales_tax_rate' => 'decimal:2',
+    ];
 
     public function settings(): HasOne
     {

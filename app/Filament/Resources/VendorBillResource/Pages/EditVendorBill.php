@@ -40,9 +40,13 @@ class EditVendorBill extends EditRecord
                 Notification::make()->title('Approved')->success()->send();
             }),
             Actions\Action::make('post')->visible(fn () => $this->record->status === 'approved')->action(function (): void {
-                $totals = $this->record->lines()->selectRaw('COALESCE(SUM(net_amount),0) net, COALESCE(SUM(tax_amount),0) tax, COALESCE(SUM(gross_amount),0) gross')->first();
-                $this->record->update(['status' => 'posted', 'net_total' => $totals->net, 'tax_total' => $totals->tax, 'gross_total' => $totals->gross, 'posted_at' => now(), 'locked_at' => now()]);
-                app(VendorBillStockIntegrationService::class)->receiveForPostedBill($this->record);
+                $this->record->update(['status' => 'posted', 'posted_at' => now(), 'locked_at' => now()]);
+
+                app(VendorBillStockIntegrationService::class)->receiveForPostedBill($this->record->fresh('lines'));
+
+                $totals = $this->record->fresh()->lines()->selectRaw('COALESCE(SUM(net_amount),0) net, COALESCE(SUM(tax_amount),0) tax, COALESCE(SUM(gross_amount),0) gross')->first();
+                $this->record->update(['net_total' => $totals->net, 'tax_total' => $totals->tax, 'gross_total' => $totals->gross]);
+
                 app(PurchasePlanService::class)->syncReceivedFromVendorBill($this->record->fresh('lines'));
                 AuditLog::create(['company_id' => $this->record->company_id, 'user_id' => auth()->id(), 'action' => 'vendor_bill.posted', 'auditable_type' => 'vendor_bill', 'auditable_id' => $this->record->id]);
                 Notification::make()->title('Posted and locked')->success()->send();

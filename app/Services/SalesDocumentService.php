@@ -17,9 +17,11 @@ use RuntimeException;
 
 final class SalesDocumentService
 {
-    public function __construct(private readonly StockService $stockService, private readonly VeriFactuService $veriFactuService)
-    {
-    }
+    public function __construct(
+        private readonly StockService $stockService,
+        private readonly VeriFactuService $veriFactuService,
+        private readonly CompanyTaxResolver $companyTaxResolver
+    ) {}
 
     public function post(SalesDocument $doc, ?string $belowCostOverrideReason = null): SalesDocument
     {
@@ -38,6 +40,11 @@ final class SalesDocumentService
             }
 
             $nextNumber = $this->allocateNextNumber((int) $document->company_id, (string) $document->series);
+            $lines = $document->lines()->orderBy('line_no')->lockForUpdate()->get();
+            $company = $document->company()->firstOrFail();
+            $resolvedTaxRate = $this->companyTaxResolver->resolveSalesTaxRate($document, $company);
+
+            $this->applyResolvedTaxToLines($lines, $resolvedTaxRate);
             $lines = $document->lines()->orderBy('line_no')->lockForUpdate()->get();
             $totals = $this->computeTotalsFromLines($lines);
 
@@ -103,6 +110,22 @@ final class SalesDocumentService
             ->max('number');
 
         return ((int) $current) + 1;
+    }
+
+    /** @param Collection<int, SalesDocumentLine> $lines */
+    private function applyResolvedTaxToLines(Collection $lines, float $resolvedTaxRate): void
+    {
+        foreach ($lines as $line) {
+            $lineNet = round((float) $line->line_net, 2);
+            $lineTax = round($lineNet * ($resolvedTaxRate / 100), 2);
+            $lineGross = round($lineNet + $lineTax, 2);
+
+            $line->update([
+                'tax_rate' => $resolvedTaxRate,
+                'line_tax' => $lineTax,
+                'line_gross' => $lineGross,
+            ]);
+        }
     }
 
     /** @param Collection<int, SalesDocumentLine> $lines */
