@@ -32,6 +32,27 @@ The installer is idempotent and safe to re-run. It will:
 10. run `php artisan migrate --seed --force`, and
 11. create `storage:link` and optimize cache.
 
+
+## VPS installer guarantees
+
+`scripts/install_ubuntu24.sh` now guarantees:
+
+- root-only execution (fails early if not root),
+- Linux user/group creation (`ironcore:ironcore`) before app commands,
+- `/opt/ironcore` creation + ownership,
+- `.env` creation from `.env.example` (or fallback template) on every fresh host,
+- `APP_KEY` generation before app boot,
+- safe Laravel bootstrap order for `CACHE_STORE=database`:
+  1. `composer install`
+  2. `npm install && npm run build`
+  3. `php artisan key:generate --force`
+  4. `php artisan migrate --seed --force`
+  5. `php artisan storage:link`
+  6. `php artisan optimize:clear`
+  7. `php artisan optimize`
+- Docker readiness wait for MariaDB + MinIO,
+- MinIO bucket creation via direct `minio/mc` commands (no shell), with persisted `/root/.mc` config.
+
 ## Manual local setup (optional)
 
 ```bash
@@ -68,6 +89,15 @@ Use direct `mc` command invocation (no shell wrapper), and persist config with m
 ```bash
 docker run --rm --network host -v /var/lib/ironcore/mc:/root/.mc minio/mc alias set local http://127.0.0.1:9000 minio miniopassword
 docker run --rm --network host -v /var/lib/ironcore/mc:/root/.mc minio/mc mb --ignore-existing local/ironcore-documents
+```
+
+### Linux user `ironcore` missing
+
+Installer creates the user/group automatically before running any `sudo -u ironcore` commands:
+
+```bash
+groupadd -f ironcore
+id -u ironcore || useradd -m -s /bin/bash -g ironcore ironcore
 ```
 
 ### `.env` missing or `APP_KEY` missing
@@ -110,15 +140,7 @@ Also ensure your user has role `admin`.
 
 ## Verification Runbook
 
-Run these checks after a fresh bootstrap (or in CI):
-
-```bash
-bash -n scripts/install_ubuntu24.sh
-php -l database/seeders/PermissionSeeder.php
-php -l database/seeders/DatabaseSeeder.php
-php artisan migrate:fresh --seed --force
-php artisan test --filter=FilamentAuthTest
-```
+See `docs/DEPLOY_VERIFY.md` for the exact VPS validation commands.
 
 ## Notes
 

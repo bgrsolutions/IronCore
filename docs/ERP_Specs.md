@@ -65,3 +65,24 @@ To preserve MySQL/MariaDB compatibility:
 - Always provide explicit names for long composite indexes and unique constraints.
 - Keep identifier names under 64 chars.
 - Prefer concise names like `<abbr>_<abbr>_idx` / `<abbr>_uniq`.
+
+
+### Linux user bootstrap
+
+Installer always creates `ironcore:ironcore` before app commands:
+
+- `groupadd -f ironcore`
+- `id -u ironcore || useradd -m -s /bin/bash -g ironcore ironcore`
+- `usermod -aG docker ironcore`
+
+### Required bootstrap order (CACHE_STORE=database safe)
+
+1. `composer install`
+2. `npm install && npm run build`
+3. `php artisan key:generate --force`
+4. `php artisan migrate --seed --force`
+5. `php artisan storage:link`
+6. `php artisan optimize:clear`
+7. `php artisan optimize`
+
+This order avoids cache-table errors before migrations are applied.
