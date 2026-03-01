@@ -11,10 +11,25 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Expense extends Model
 {
-    use HasFactory;
     use BelongsToCompany;
+    use HasFactory;
 
-    protected $fillable = ['company_id', 'merchant', 'date', 'category', 'currency', 'net_total', 'tax_total', 'gross_total', 'status', 'posted_at', 'locked_at', 'cancelled_at', 'cancel_reason'];
+    protected $fillable = [
+        'company_id',
+        'merchant',
+        'date',
+        'category',
+        'currency',
+        'pdf_path',
+        'net_total',
+        'tax_total',
+        'gross_total',
+        'status',
+        'posted_at',
+        'locked_at',
+        'cancelled_at',
+        'cancel_reason',
+    ];
 
     protected $casts = ['date' => 'date', 'posted_at' => 'datetime', 'locked_at' => 'datetime', 'cancelled_at' => 'datetime'];
 

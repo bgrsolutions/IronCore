@@ -9,10 +9,24 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ExpenseLine extends Model
 {
-    use HasFactory;
     use BelongsToCompany;
+    use HasFactory;
 
-    protected $fillable = ['company_id', 'expense_id', 'description', 'quantity', 'unit_price', 'net_amount', 'tax_amount', 'gross_amount'];
+    protected $fillable = [
+        'company_id',
+        'expense_id',
+        'description',
+        'quantity',
+        'unit_price',
+        'net_amount',
+        'tax_rate',
+        'tax_amount',
+        'gross_amount',
+    ];
+
+    protected $casts = [
+        'tax_rate' => 'decimal:2',
+    ];
 
     public function expense(): BelongsTo
     {
