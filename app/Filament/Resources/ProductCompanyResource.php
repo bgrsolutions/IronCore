@@ -21,6 +21,14 @@ class ProductCompanyResource extends Resource
 
     protected static ?string $model = ProductCompany::class;
 
+    protected static ?string $navigationGroup = 'Inventory';
+
+    protected static ?string $navigationLabel = 'Stock Settings';
+
+    protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
+
+    protected static ?int $navigationSort = 20;
+
     public static function form(Form $form): Form
     {
         return $form->schema([

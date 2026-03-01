@@ -19,6 +19,10 @@ class VerifactuExportResource extends Resource
 
     protected static ?string $navigationLabel = 'VeriFactu Exports';
 
+    protected static ?string $navigationIcon = 'heroicon-o-shield-check';
+
+    protected static ?int $navigationSort = 10;
+
     public static function table(Table $table): Table
     {
         return $table

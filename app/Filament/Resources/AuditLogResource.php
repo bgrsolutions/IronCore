@@ -14,6 +14,12 @@ class AuditLogResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = AuditLog::class;
+    protected static ?string $navigationGroup = 'Admin';
+
+    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+
+    protected static ?int $navigationSort = 40;
+
 
     public static function table(Table $table): Table
     {

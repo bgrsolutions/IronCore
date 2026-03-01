@@ -19,6 +19,10 @@ class AccountantExportBatchResource extends Resource
 
     protected static ?string $navigationLabel = 'Accountant Exports';
 
+    protected static ?string $navigationIcon = 'heroicon-o-archive-box-arrow-down';
+
+    protected static ?int $navigationSort = 20;
+
     public static function table(Table $table): Table
     {
         return $table->columns([

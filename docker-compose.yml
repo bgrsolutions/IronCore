@@ -1,3 +1,4 @@
+# IronCore local infrastructure stack
 version: '3.8'
 
 services:
@@ -19,7 +20,7 @@ services:
       - '6379:6379'
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
     command: server /data --console-address ':9001'
     environment:
       MINIO_ROOT_USER: minio

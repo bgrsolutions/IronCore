@@ -15,6 +15,12 @@ class SubscriptionRunsResource extends Resource
     use HasCompanyScopedResource;
 
     protected static ?string $model = SubscriptionRun::class;
+    protected static ?string $navigationGroup = 'Sales';
+
+    protected static ?string $navigationIcon = 'heroicon-o-clock';
+
+    protected static ?int $navigationSort = 40;
+
 
 
     public static function canViewAny(): bool

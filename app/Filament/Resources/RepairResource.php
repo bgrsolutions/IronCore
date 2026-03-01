@@ -26,6 +26,12 @@ class RepairResource extends Resource
 
     protected static ?string $model = Repair::class;
 
+    protected static ?string $navigationGroup = 'Repairs';
+
+    protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
+
+    protected static ?int $navigationSort = 20;
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
@@ -90,6 +96,8 @@ class RepairResource extends Resource
                 Notification::make()->success()->title(route('public.repairs.show', $token->token))->send();
             }),
             Tables\Actions\EditAction::make(),
+        ])->bulkActions([
+            Tables\Actions\DeleteBulkAction::make(),
         ]);
     }
 
@@ -98,7 +106,23 @@ class RepairResource extends Resource
         return [SignaturesRelationManager::class];
     }
 
-    public static function getPages(): array
+    
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canEdit($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+
+    public static function canDelete($record): bool
+    {
+        return auth()->user()?->hasRole('admin') ?? false;
+    }
+public static function getPages(): array
     {
         return [
             'index' => Pages\ListRepairs::route('/'),
