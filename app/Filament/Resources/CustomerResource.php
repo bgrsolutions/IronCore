@@ -15,7 +15,7 @@ class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static ?string $navigationGroup = 'CRM';
+    protected static ?string $navigationGroup = 'CRM / Customers';
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
@@ -48,8 +48,6 @@ class CustomerResource extends Resource
         return [CustomerCompaniesRelationManager::class];
     }
 
-    
-
     public static function canCreate(): bool
     {
         return auth()->user()?->hasRole('admin') ?? false;
@@ -64,7 +62,8 @@ class CustomerResource extends Resource
     {
         return auth()->user()?->hasRole('admin') ?? false;
     }
-public static function getPages(): array
+
+    public static function getPages(): array
     {
         return ['index' => Pages\ListCustomers::route('/'), 'create' => Pages\CreateCustomer::route('/create'), 'edit' => Pages\EditCustomer::route('/{record}/edit')];
     }

@@ -23,7 +23,7 @@ class VendorBillResource extends Resource
 
     protected static ?string $model = VendorBill::class;
 
-    protected static ?string $navigationGroup = 'Inventory';
+    protected static ?string $navigationGroup = 'Purchasing';
 
     protected static ?string $navigationIcon = 'heroicon-o-receipt-percent';
 
@@ -56,7 +56,7 @@ class VendorBillResource extends Resource
             Forms\Components\DatePicker::make('invoice_date')->required(),
             Forms\Components\DatePicker::make('due_date'),
             Forms\Components\Repeater::make('lines')->relationship('lines')->schema([
-                Forms\Components\Select::make('product_id')->relationship('product','name')->searchable(),
+                Forms\Components\Select::make('product_id')->relationship('product', 'name')->searchable(),
                 Forms\Components\Toggle::make('is_stock_item')->default(false),
                 Forms\Components\TextInput::make('description')->required(),
                 Forms\Components\TextInput::make('quantity')->numeric()->default(1)->reactive()
